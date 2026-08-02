@@ -393,20 +393,47 @@ function Get-UpnpDevices {
     $seen    = New-Object 'System.Collections.Generic.HashSet[string]'
     $udp     = $null
 
+    # Mehrere Suchbegriffe: manche Router antworten nur auf den allgemeinen
+    # rootdevice-Aufruf, nicht auf die Gateway-Kennung.
+    $suchbegriffe = @(
+        'urn:schemas-upnp-org:device:InternetGatewayDevice:1',
+        'urn:schemas-upnp-org:device:InternetGatewayDevice:2',
+        'upnp:rootdevice'
+    )
+
     try {
         $udp = New-Object System.Net.Sockets.UdpClient
         $udp.Client.ReceiveTimeout = 1000
+
+        # An die Adresse binden, über die es ins Internet geht. Ohne das schickt
+        # Windows den Multicast bei mehreren Adaptern (LAN + WLAN + VPN) unter
+        # Umständen über den falschen - und der Router hört nie davon.
+        try {
+            $lokal = Get-LocalPrimaryIP
+            if ($lokal) {
+                $udp.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket,
+                                            [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
+                $udp.Client.Bind((New-Object System.Net.IPEndPoint(
+                    [System.Net.IPAddress]::Parse($lokal), 0)))
+            }
+        } catch { }
+
         $encoding = [System.Text.Encoding]::ASCII
-
-        $request = $encoding.GetBytes(
-            "M-SEARCH * HTTP/1.1`r`n" +
-            "HOST: 239.255.255.250:1900`r`n" +
-            "MAN: `"ssdp:discover`"`r`n" +
-            "MX: 2`r`n" +
-            "ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1`r`n`r`n")
-
         $endpoint = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse('239.255.255.250'), 1900)
-        [void]$udp.Send($request, $request.Length, $endpoint)
+
+        # SSDP läuft über UDP, Pakete gehen verloren. Deshalb jeden Suchbegriff
+        # zweimal senden statt sich auf einen Versuch zu verlassen.
+        foreach ($durchgang in 1..2) {
+            foreach ($st in $suchbegriffe) {
+                $request = $encoding.GetBytes(
+                    "M-SEARCH * HTTP/1.1`r`n" +
+                    "HOST: 239.255.255.250:1900`r`n" +
+                    "MAN: `"ssdp:discover`"`r`n" +
+                    "MX: 2`r`n" +
+                    "ST: $st`r`n`r`n")
+                try { [void]$udp.Send($request, $request.Length, $endpoint) } catch { }
+            }
+        }
 
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         while ($sw.ElapsedMilliseconds -lt $TimeoutMs) {
@@ -435,6 +462,44 @@ function Get-UpnpDevices {
 
     # .ToArray() statt @(...) - siehe HINWEIS am Dateianfang zu List[object].
     return $devices.ToArray()
+}
+
+function Get-NetworkCategory {
+    <#
+    .SYNOPSIS
+        Ermittelt, ob Windows das aktive Netzwerk als privat oder öffentlich
+        einstuft.
+    .DESCRIPTION
+        Das ist bei UPnP entscheidend: in der Kategorie "Öffentlich" blockt die
+        Windows-Firewall die Antworten auf SSDP-Multicast. Die Suche findet dann
+        garantiert nichts - egal wie gut der Router UPnP beherrscht. Ohne diese
+        Information würde das Werkzeug fälschlich melden, der Router könne kein
+        UPnP.
+    .OUTPUTS
+        Objekt mit Category ('Private'|'Public'|'DomainAuthenticated'|'Unknown'),
+        InterfaceAlias, IsPublic
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        $profil = @(Get-NetConnectionProfile -ErrorAction Stop |
+                    Where-Object { $_.IPv4Connectivity -eq 'Internet' -or $_.IPv6Connectivity -eq 'Internet' } |
+                    Select-Object -First 1)
+        if ($profil.Count -eq 0) {
+            $profil = @(Get-NetConnectionProfile -ErrorAction Stop | Select-Object -First 1)
+        }
+        if ($profil.Count -gt 0) {
+            $kategorie = [string]$profil[0].NetworkCategory
+            return [pscustomobject]@{
+                Category       = $kategorie
+                InterfaceAlias = [string]$profil[0].InterfaceAlias
+                IsPublic       = ($kategorie -eq 'Public')
+            }
+        }
+    } catch { }
+
+    return [pscustomobject]@{ Category = 'Unknown'; InterfaceAlias = ''; IsPublic = $false }
 }
 
 # ------------------------------------------------------------------------------

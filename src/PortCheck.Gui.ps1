@@ -30,7 +30,7 @@ param(
     [string]$Theme = '',
 
     # Startet direkt auf einer bestimmten Seite, z. B. -StartPage NavNat
-    [ValidateSet('', 'NavDashboard', 'NavPorts', 'NavPresets', 'NavNat', 'NavHowTo', 'NavNetwork', 'NavSettings', 'NavAbout')]
+    [ValidateSet('', 'NavDashboard', 'NavPorts', 'NavPresets', 'NavNat', 'NavHowTo', 'NavSecurity', 'NavQuality', 'NavNetwork', 'NavSettings', 'NavAbout')]
     [string]$StartPage = '',
 
     # ENTWICKLER-OPTION: baut das Fenster vollständig auf, prüft alles durch
@@ -55,6 +55,9 @@ param(
     # Zeigt das Willkommensfenster erneut, auch wenn es schon zu sehen war.
     [switch]$ShowWelcome,
 
+    # ENTWICKLER-OPTION: öffnet direkt das Teilen-Fenster (für die Bilder).
+    [switch]$ShowShare,
+
     # ENTWICKLER-OPTION: füllt die Oberfläche mit Beispieldaten und geht
     # NICHT ins Netz. Dient allein den Bildern in der README - damit dort
     # keine echte IP-Adresse einer Privatperson landet. Die verwendete Adresse
@@ -73,7 +76,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml
 
 $script:AppName    = 'TEE PortChecker'
-$script:AppVersion = '1.0.0'
+$script:AppVersion = '1.1.0'
 $script:RepoUrl    = 'https://github.com/TheErsysEnding/TEE-PortChecker'
 $script:LinktreeUrl = 'https://linktr.ee/theersysending'
 $script:DiscordUrl  = 'https://discord.gg/teebug'
@@ -87,11 +90,15 @@ $script:Root       = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:CorePath   = Join-Path $script:Root 'PortCheck.Core.ps1'
 $script:PresetPath = Join-Path $script:Root 'PortCheck.Presets.ps1'
 $script:ThemePath  = Join-Path $script:Root 'PortCheck.Themes.ps1'
+$script:UpnpPath   = Join-Path $script:Root 'PortCheck.Upnp.ps1'
+$script:DiagPath   = Join-Path $script:Root 'PortCheck.Diagnose.ps1'
 $script:XamlPath   = Join-Path $script:Root 'Gui.xaml'
 $script:WelcomePath = Join-Path $script:Root 'Welcome.xaml'
+$script:SharePath  = Join-Path $script:Root 'Share.xaml'
 
 foreach ($required in @($script:CorePath, $script:PresetPath, $script:ThemePath,
-                        $script:XamlPath, $script:WelcomePath)) {
+                        $script:UpnpPath, $script:DiagPath,
+                        $script:XamlPath, $script:WelcomePath, $script:SharePath)) {
     if (-not (Test-Path $required)) {
         [System.Windows.MessageBox]::Show(
             "Eine Programmdatei fehlt:`n$required`n`nBitte den kompletten Ordner entpacken bzw. klonen.",
@@ -103,6 +110,8 @@ foreach ($required in @($script:CorePath, $script:PresetPath, $script:ThemePath,
 . $script:CorePath
 . $script:PresetPath
 . $script:ThemePath
+. $script:UpnpPath
+. $script:DiagPath
 
 # ------------------------------------------------------------------------------
 # Region: Einstellungen
@@ -228,7 +237,14 @@ foreach ($name in @(
     'TxtAboutVersion','BtnOpenRepo','BtnOpenSource','BtnShowWelcome',
     'BtnAboutLinktree','BtnAboutDiscord','BtnAboutRepo','TxtRepoShort',
     'BtnSideDiscord','BtnSideLinktree','BtnLinktree','BtnDiscord',
-    'NavHowTo','PageHowTo','BtnPureVpn','BtnOpenRouter','BtnHowToTest',
+'NavHowTo','PageHowTo','BtnPureVpn','BtnOpenRouter','BtnHowToTest',
+    'NavSecurity','PageSecurity','SecurityBadge','SecurityBadgeIcon','SecurityBadgeText',
+    'TxtSecurityTitle','TxtSecuritySummary','BtnSecurityScan','BtnSecurityStop',
+    'ProgSecurity','TxtSecurityProgress','ItemsSecurityFindings',
+    'NavQuality','PageQuality','BtnQualityStart','BtnQualityCopy','TxtQualityProgress','ItemsQuality',
+    'Ipv6Icon','BtnIpv6Check','TxtIpv6Title','TxtIpv6Address','ItemsIpv6Reasons',
+    'UpnpManageCard','BtnUpnpRefresh','TxtUpnpRouterInfo','ItemsUpnpMappings','TxtUpnpMappingsEmpty',
+    'TxtUpnpPort','CmbUpnpProtocol','TxtUpnpDescription','BtnUpnpAdd','BtnShareResult',
     'StatusDot','TxtStatus','ProgStatus','TxtStatusRight')) {
     $ui[$name] = Get-Ui $name
 }
@@ -365,6 +381,8 @@ function Start-Work {
     $runspace.SessionStateProxy.SetVariable('Sync', $script:Sync)
     $runspace.SessionStateProxy.SetVariable('CorePath', $script:CorePath)
     $runspace.SessionStateProxy.SetVariable('PresetPath', $script:PresetPath)
+    $runspace.SessionStateProxy.SetVariable('UpnpPath', $script:UpnpPath)
+    $runspace.SessionStateProxy.SetVariable('DiagPath', $script:DiagPath)
     $runspace.SessionStateProxy.SetVariable('P', $Parameters)
 
     $shell = [powershell]::Create()
@@ -563,6 +581,112 @@ $script:WorkerUpnp = {
     $Sync.Queue.Enqueue(@{ Kind = 'upnp-done'; Data = @($devices) })
 }
 
+$script:WorkerSecurity = {
+    . $CorePath
+    . $DiagPath
+
+    $ports   = @(Get-SecurityScanPorts)
+    $total   = $ports.Count
+    $done    = 0
+    $failRun = 0
+
+    foreach ($port in $ports) {
+        if ($Sync.Cancel) {
+            $Sync.Queue.Enqueue(@{ Kind = 'security-done'; Cancelled = $true })
+            return
+        }
+        $done++
+        $Sync.Queue.Enqueue(@{ Kind = 'security-progress'; Done = $done; Total = $total; Port = $port })
+
+        if ($P.NoListener) {
+            $result = Test-PortExternal -Port $port -PublicIP $P.PublicIP -TimeoutSec $P.TimeoutSec -NoListener
+        } else {
+            $result = Test-PortExternal -Port $port -PublicIP $P.PublicIP -TimeoutSec $P.TimeoutSec
+        }
+        $Sync.Queue.Enqueue(@{ Kind = 'security-result'; Data = $result })
+
+        if ($result.Status -eq 'Error' -or $result.Status -eq 'Unknown') { $failRun++ } else { $failRun = 0 }
+        if ($failRun -ge 3) {
+            $wartete = 0
+            while ($wartete -lt 8000 -and -not $Sync.Cancel) { Start-Sleep -Milliseconds 100; $wartete += 100 }
+            $failRun = 0
+        }
+        $wartete = 0
+        while ($wartete -lt $P.DelayMs -and -not $Sync.Cancel) { Start-Sleep -Milliseconds 50; $wartete += 50 }
+    }
+    $Sync.Queue.Enqueue(@{ Kind = 'security-done'; Cancelled = $false })
+}
+
+$script:WorkerQuality = {
+    . $CorePath
+    . $DiagPath
+
+    $ziele = Get-NetworkPathTargets -Gateway $P.Gateway -Dns $P.Dns
+    $index = 0
+    foreach ($ziel in $ziele) {
+        $index++
+        $Sync.Queue.Enqueue(@{ Kind = 'quality-progress'; Label = $ziel.Label; Done = $index; Total = @($ziele).Count })
+        $messung = Measure-Latency -Target $ziel.Host -Count 10 -PauseMs 100
+        $note    = Get-LatencyRating -Measurement $messung
+        $Sync.Queue.Enqueue(@{ Kind = 'quality-result'; Target = $ziel; Measure = $messung; Rating = $note })
+    }
+    $Sync.Queue.Enqueue(@{ Kind = 'quality-done' })
+}
+
+$script:WorkerIpv6 = {
+    . $CorePath
+    . $DiagPath
+    $Sync.Queue.Enqueue(@{ Kind = 'status'; Text = 'Prüfe IPv6...'; Level = 'busy' })
+    $ergebnis = Get-IPv6Status
+    $Sync.Queue.Enqueue(@{ Kind = 'ipv6-done'; Data = $ergebnis })
+}
+
+$script:WorkerUpnpConnect = {
+    . $CorePath
+    . $UpnpPath
+    $Sync.Queue.Enqueue(@{ Kind = 'status'; Text = 'Suche Router über UPnP...'; Level = 'busy' })
+    $verbindung = Connect-UpnpRouter -TimeoutMs 4000
+    $freigaben = @()
+    $externeIp = $null
+    if ($verbindung.Found) {
+        $externeIp = Get-UpnpExternalAddress -ControlPoint $verbindung.ControlPoint
+        $freigaben = Get-UpnpPortMappings -ControlPoint $verbindung.ControlPoint
+    }
+    $Sync.Queue.Enqueue(@{
+        Kind = 'upnp-router'; Connection = $verbindung
+        Mappings = @($freigaben); ExternalIp = $externeIp
+    })
+}
+
+$script:WorkerUpnpChange = {
+    . $CorePath
+    . $UpnpPath
+    # Der Steuerpunkt wird bewusst neu ermittelt: das Objekt aus dem
+    # Hauptfenster liesse sich zwar übergeben, aber eine frisch geholte
+    # Adresse ist verlässlicher, falls der Router zwischenzeitlich neu
+    # gestartet hat.
+    $verbindung = Connect-UpnpRouter -TimeoutMs 4000
+    if (-not $verbindung.Found) {
+        $Sync.Queue.Enqueue(@{ Kind = 'upnp-changed'; Success = $false; Message = $verbindung.Message })
+        return
+    }
+
+    if ($P.Operation -eq 'add') {
+        $ergebnis = Add-UpnpPortMapping -ControlPoint $verbindung.ControlPoint `
+                        -ExternalPort $P.Port -InternalPort $P.Port `
+                        -InternalClient $P.Client -Protocol $P.Protocol -Description $P.Description
+    } else {
+        $ergebnis = Remove-UpnpPortMapping -ControlPoint $verbindung.ControlPoint `
+                        -ExternalPort $P.Port -Protocol $P.Protocol
+    }
+
+    $freigaben = Get-UpnpPortMappings -ControlPoint $verbindung.ControlPoint
+    $Sync.Queue.Enqueue(@{
+        Kind = 'upnp-changed'; Success = $ergebnis.Success; Message = $ergebnis.Message
+        Mappings = @($freigaben)
+    })
+}
+
 $script:WorkerNetwork = {
     . $CorePath
     $overview = Get-NetworkOverview
@@ -576,9 +700,15 @@ $script:WorkerNetwork = {
 # Region: Anzeige der Messergebnisse
 # ------------------------------------------------------------------------------
 
-$script:PublicIP  = $null
-$script:LastNat   = $null
-$script:StartedAt = $null
+$script:PublicIP        = $null
+$script:LastNat         = $null
+$script:LastSecurity    = $null
+$script:LastIpv6        = $null
+$script:StartedAt       = $null
+$script:UpnpReady       = $false
+$script:UpnpMappings    = @()
+$script:SecurityResults = New-Object 'System.Collections.Generic.List[object]'
+$script:QualityRows     = New-Object 'System.Collections.Generic.List[object]'
 
 function Show-PublicIp {
     param([string]$Ip)
@@ -668,6 +798,139 @@ function Show-NatResult {
         'Strict'   { 'Verbindungsprobleme wahrscheinlich' }
         default    { 'Test im Reiter NAT-Typ' }
     }
+}
+
+function Get-ThemeBrush {
+    <#
+    .SYNOPSIS
+        Holt einen Pinsel der aktuellen Farbwelt.
+    .DESCRIPTION
+        Für Listeneinträge, die ihre Farbe als Objekt mitbringen müssen -
+        Bindungen auf Ressourcen funktionieren dort nicht zuverlässig.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Token)
+    return (ConvertTo-PortCheckBrush $script:CurrentTheme.Tokens[$Token])
+}
+
+function Show-SecurityResult {
+    <#
+    .SYNOPSIS
+        Zeigt die Bewertung des Sicherheits-Durchlaufs.
+    #>
+    param($Assessment)
+
+    $script:LastSecurity = $Assessment
+    $ui.TxtSecuritySummary.Text = $Assessment.Summary
+
+    $farbe = switch ($Assessment.Level) {
+        'Kritisch' { 'BadBrush' }
+        'Warnung'  { 'WarnBrush' }
+        'Hinweis'  { 'WarnBrush' }
+        default    { 'OkBrush' }
+    }
+    $zeichen = switch ($Assessment.Level) {
+        'Kritisch' { [char]0xE7BA }
+        'Warnung'  { [char]0xE7BA }
+        'Hinweis'  { [char]0xE946 }
+        default    { [char]0xE73E }
+    }
+    $titel = switch ($Assessment.Level) {
+        'Kritisch' { 'Handlungsbedarf' }
+        'Warnung'  { 'Unnötiges Risiko' }
+        'Hinweis'  { 'Kleinigkeiten' }
+        default    { 'Unauffällig' }
+    }
+
+    $ui.TxtSecurityTitle.Text  = $titel
+    $ui.SecurityBadgeText.Text = $Assessment.Level.ToUpper()
+    $ui.SecurityBadgeIcon.Text = [string]$zeichen
+    $ui.SecurityBadgeIcon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $farbe)
+    $ui.SecurityBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $farbe)
+    $ui.SecurityBadge.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, $farbe)
+
+    $zeilen = foreach ($fund in $Assessment.Findings) {
+        $token = switch ($fund.Severity) {
+            'Kritisch' { 'Bad' }
+            'Hoch'     { 'Warn' }
+            default    { 'FgDim' }
+        }
+        $weich = switch ($fund.Severity) {
+            'Kritisch' { 'BadSoft' }
+            'Hoch'     { 'WarnSoft' }
+            default    { 'StrokeSoft' }
+        }
+        [pscustomobject]@{
+            Severity    = $fund.Severity.ToUpper()
+            Headline    = "Port $($fund.Port) - $($fund.Name)"
+            Why         = $fund.Why
+            Accent      = (Get-ThemeBrush $token)
+            AccentSoft  = (Get-ThemeBrush $weich)
+        }
+    }
+    $ui.ItemsSecurityFindings.ItemsSource = @($zeilen)
+}
+
+function Show-Ipv6Result {
+    param($Status)
+
+    $script:LastIpv6 = $Status
+    $ui.TxtIpv6Title.Text = $Status.Title
+    $ui.ItemsIpv6Reasons.ItemsSource = @($Status.Reasons)
+
+    $farbe = switch ($Status.Level) {
+        'Full'    { 'OkBrush' }
+        'Partial' { 'WarnBrush' }
+        default   { 'FgFaintBrush' }
+    }
+    $ui.Ipv6Icon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $farbe)
+    $ui.TxtIpv6Title.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $farbe)
+
+    if ($Status.PublicAddress) {
+        $ui.TxtIpv6Address.Text = "Deine öffentliche IPv6: $($Status.PublicAddress)"
+        $ui.TxtIpv6Address.Visibility = 'Visible'
+    } elseif (@($Status.LocalAddresses).Count -gt 0) {
+        $ui.TxtIpv6Address.Text = "Lokale IPv6: $(@($Status.LocalAddresses) -join ', ')"
+        $ui.TxtIpv6Address.Visibility = 'Visible'
+    } else {
+        $ui.TxtIpv6Address.Visibility = 'Collapsed'
+    }
+}
+
+function Show-UpnpMappings {
+    <#
+    .SYNOPSIS
+        Stellt die Portfreigaben des Routers dar und hebt riskante hervor.
+    #>
+    param([object[]]$Mappings)
+
+    $script:UpnpMappings = @($Mappings)
+    $katalog = Get-RiskyPortCatalog
+
+    $zeilen = foreach ($eintrag in $script:UpnpMappings) {
+        $risiko = @($katalog | Where-Object { $_.Port -eq $eintrag.ExternalPort })
+        $istRisiko = ($risiko.Count -gt 0)
+        $token = if ($istRisiko) {
+            if ($risiko[0].Severity -eq 'Kritisch') { 'Bad' } else { 'Warn' }
+        } else { 'Accent' }
+        $weich = if ($istRisiko) {
+            if ($risiko[0].Severity -eq 'Kritisch') { 'BadSoft' } else { 'WarnSoft' }
+        } else { 'AccentSoft' }
+
+        [pscustomobject]@{
+            Key         = "$($eintrag.ExternalPort)/$($eintrag.Protocol)"
+            PortText    = "$($eintrag.ExternalPort) $($eintrag.Protocol)"
+            Description = $(if ($eintrag.Description) { $eintrag.Description } else { '(ohne Beschreibung)' })
+            TargetText  = "$($eintrag.Client):$($eintrag.InternalPort)"
+            RiskText    = $(if ($istRisiko) { "Achtung: $($risiko[0].Name) - $($risiko[0].Severity.ToLower())es Risiko" } else { '' })
+            RiskVisible = $(if ($istRisiko) { 'Visible' } else { 'Collapsed' })
+            Accent      = (Get-ThemeBrush $token)
+            AccentSoft  = (Get-ThemeBrush $weich)
+        }
+    }
+
+    $ui.ItemsUpnpMappings.ItemsSource = @($zeilen)
+    $ui.TxtUpnpMappingsEmpty.Visibility =
+        if (@($zeilen).Count -eq 0) { 'Visible' } else { 'Collapsed' }
 }
 
 function Show-Upnp {
@@ -827,6 +1090,115 @@ $script:Pump.Add_Tick({
                 $ui.BtnUpnpScan.IsEnabled = $true
                 Set-Status 'UPnP-Suche beendet.' 'ok'
             }
+
+            'security-progress' {
+                $percent = if ($message.Total -gt 0) { 100.0 * $message.Done / $message.Total } else { 0 }
+                $ui.ProgSecurity.Value = $percent
+                $ui.ProgStatus.Value   = $percent
+                $ui.TxtSecurityProgress.Text =
+                    "Prüfe Port $($message.Port)  -  $($message.Done) von $($message.Total)"
+                Set-Status "Sicherheits-Check: $($message.Done)/$($message.Total)" 'busy'
+            }
+
+            'security-result' { $script:SecurityResults.Add($message.Data) }
+
+            'security-done' {
+                Complete-Work
+                $ui.BtnSecurityScan.IsEnabled = $true
+                $ui.BtnSecurityStop.IsEnabled = $false
+                $ui.ProgSecurity.Value = 100
+
+                $bewertung = Get-SecurityAssessment -Results $script:SecurityResults.ToArray()
+                Show-SecurityResult $bewertung
+                if ($message.Cancelled) {
+                    $ui.TxtSecurityProgress.Text = 'Abgebrochen - die Bewertung bezieht sich nur auf das bereits Geprüfte.'
+                    Set-Status 'Sicherheits-Check abgebrochen.' 'warn'
+                } else {
+                    $ui.TxtSecurityProgress.Text = "Fertig. $($script:SecurityResults.Count) Risiko-Ports geprüft."
+                    Set-Status "Sicherheits-Check fertig: $($bewertung.Level)" $(
+                        switch ($bewertung.Level) { 'Sauber' { 'ok' } 'Hinweis' { 'warn' } default { 'error' } })
+                }
+            }
+
+            'quality-progress' {
+                $ui.TxtQualityProgress.Text = "Messe $($message.Label)  -  $($message.Done) von $($message.Total)"
+                Set-Status "Verbindungsmessung: $($message.Label)" 'busy'
+            }
+
+            'quality-result' {
+                $token = switch ($message.Rating.Level) {
+                    'Sehr gut'     { 'Ok' }
+                    'Gut'          { 'Ok' }
+                    'Brauchbar'    { 'Warn' }
+                    'Unerreichbar' { 'FgFaint' }
+                    default        { 'Bad' }
+                }
+                $script:QualityRows.Add([pscustomobject]@{
+                    Label      = $message.Target.Label
+                    HostText   = $message.Target.Host
+                    Meaning    = $message.Target.Meaning
+                    PingText   = $(if ($message.Measure.Reachable) { "$($message.Measure.AvgMs) ms" } else { '-' })
+                    DetailText = $(if ($message.Measure.Reachable) {
+                                      "min $($message.Measure.MinMs) / max $($message.Measure.MaxMs) / " +
+                                      "Jitter $($message.Measure.JitterMs) / Verlust $($message.Measure.LossPercent) %"
+                                  } else { 'keine Antwort' })
+                    RatingText = "$($message.Rating.Level) - $($message.Rating.Text)"
+                    Accent     = (Get-ThemeBrush $token)
+                })
+                $ui.ItemsQuality.ItemsSource = $null
+                $ui.ItemsQuality.ItemsSource = $script:QualityRows.ToArray()
+            }
+
+            'quality-done' {
+                Complete-Work
+                $ui.BtnQualityStart.IsEnabled = $true
+                $ui.TxtQualityProgress.Text = 'Messung abgeschlossen.'
+                Set-Status 'Verbindungsmessung fertig.' 'ok'
+            }
+
+            'ipv6-done' {
+                Complete-Work
+                Show-Ipv6Result $message.Data
+                $ui.BtnIpv6Check.IsEnabled = $true
+                Set-Status "IPv6: $($message.Data.Title)" $(
+                    switch ($message.Data.Level) { 'Full' { 'ok' } 'Partial' { 'warn' } default { 'idle' } })
+            }
+
+            'upnp-router' {
+                Complete-Work
+                $ui.BtnUpnpScan.IsEnabled = $true
+                $ui.BtnUpnpRefresh.IsEnabled = $true
+                if ($message.Connection.Found) {
+                    $script:UpnpReady = $true
+                    $ui.UpnpManageCard.Visibility = 'Visible'
+                    $info = "Router: $($message.Connection.DeviceName)  ($($message.Connection.Address))"
+                    if ($message.ExternalIp) { $info += "   -   nach außen: $($message.ExternalIp)" }
+                    $ui.TxtUpnpRouterInfo.Text = $info
+                    $ui.TxtUpnpState.Text = 'UPnP verfügbar - Freigaben lassen sich hier direkt verwalten.'
+                    $ui.TxtDashUpnp.Text = 'verfügbar'
+                    $ui.TxtDashUpnpNote.Text = 'Ports lassen sich direkt freigeben'
+                    Show-UpnpMappings $message.Mappings
+                    Set-Status "UPnP bereit: $($message.Connection.DeviceName)" 'ok'
+                } else {
+                    $script:UpnpReady = $false
+                    $ui.UpnpManageCard.Visibility = 'Collapsed'
+                    $ui.TxtUpnpState.Text = $message.Connection.Message
+                    $ui.TxtDashUpnp.Text = 'nicht nutzbar'
+                    $ui.TxtDashUpnpNote.Text = 'Details im Reiter Netzwerk'
+                    Set-Status 'UPnP steht nicht zur Verfügung.' 'warn'
+                }
+            }
+
+            'upnp-changed' {
+                Complete-Work
+                $ui.BtnUpnpAdd.IsEnabled = $true
+                $ui.BtnUpnpRefresh.IsEnabled = $true
+                if ($message.ContainsKey('Mappings')) { Show-UpnpMappings $message.Mappings }
+                Set-Status $message.Message $(if ($message.Success) { 'ok' } else { 'error' })
+                if (-not $message.Success) {
+                    [System.Windows.MessageBox]::Show($message.Message, 'TEE PortChecker', 'OK', 'Warning') | Out-Null
+                }
+            }
         }
     }
 
@@ -851,6 +1223,8 @@ $script:Pages = @{
     'NavPresets'   = 'PagePresets'
     'NavNat'       = 'PageNat'
     'NavHowTo'     = 'PageHowTo'
+    'NavSecurity'  = 'PageSecurity'
+    'NavQuality'   = 'PageQuality'
     'NavNetwork'   = 'PageNetwork'
     'NavSettings'  = 'PageSettings'
     'NavAbout'     = 'PageAbout'
@@ -1210,7 +1584,9 @@ $ui.BtnNatCopy.Add_Click({
 # ------------------------------------------------------------------------------
 
 $ui.BtnUpnpScan.Add_Click({
-    $started = Start-Work -Body $script:WorkerUpnp
+    # Sucht den Router UND holt gleich die vorhandenen Freigaben - das ist
+    # der Zustand, den man eigentlich sehen will.
+    $started = Start-Work -Body $script:WorkerUpnpConnect
     if ($started) {
         $ui.BtnUpnpScan.IsEnabled = $false
         $ui.TxtUpnpState.Text     = 'Suche läuft...'
@@ -1220,6 +1596,182 @@ $ui.BtnUpnpScan.Add_Click({
 $ui.BtnNetRefresh.Add_Click({
     if (Start-Work -Body $script:WorkerNetwork) { Set-Status 'Netzwerkdaten werden neu geladen...' 'busy' }
 })
+
+# ------------------------------------------------------------------------------
+# Region: Sicherheits-Check
+# ------------------------------------------------------------------------------
+
+$ui.BtnSecurityScan.Add_Click({
+    if (-not $script:PublicIP) {
+        Set-Status 'Die öffentliche IP ist noch nicht bekannt.' 'warn'
+        return
+    }
+    $anzahl = @(Get-SecurityScanPorts).Count
+    $sekunden = [math]::Round($anzahl * (($script:Settings.DelayMs / 1000.0) + 1.3))
+    $dauer = [timespan]::FromSeconds($sekunden).ToString('hh\:mm\:ss')
+    $antwort = [System.Windows.MessageBox]::Show(
+        "Es werden $anzahl bekannte Risiko-Ports geprüft. Geschätzte Dauer: ca. $dauer.`n`n" +
+        "Dabei wird für jeden Port kurz ein lokaler Listener geöffnet - Windows fragt " +
+        "gegebenenfalls nach einer Firewall-Freigabe.`n`nStarten?",
+        'TEE PortChecker', 'YesNo', 'Question')
+    if ($antwort -ne 'Yes') { return }
+
+    $script:SecurityResults.Clear()
+    $ui.ItemsSecurityFindings.ItemsSource = $null
+    $ui.ProgSecurity.Value = 0
+
+    $gestartet = Start-Work -Body $script:WorkerSecurity -Parameters @{
+        PublicIP   = $script:PublicIP
+        DelayMs    = [int]$script:Settings.DelayMs
+        TimeoutSec = [int]$script:Settings.TimeoutSec
+        NoListener = -not [bool]$script:Settings.UseListener
+    }
+    if ($gestartet) {
+        $ui.BtnSecurityScan.IsEnabled = $false
+        $ui.BtnSecurityStop.IsEnabled = $true
+        $ui.TxtSecurityTitle.Text = 'Prüfung läuft...'
+        Set-Status 'Sicherheits-Check gestartet.' 'busy'
+    }
+})
+
+$ui.BtnSecurityStop.Add_Click({ Stop-Work })
+
+# ------------------------------------------------------------------------------
+# Region: Verbindungsqualität
+# ------------------------------------------------------------------------------
+
+$ui.BtnQualityStart.Add_Click({
+    $script:QualityRows.Clear()
+    $ui.ItemsQuality.ItemsSource = $null
+    $dns = $ui.TxtNetDns.Text
+    if ($dns -and $dns -ne '...' -and $dns -ne 'unbekannt') { $dns = ($dns -split ',')[0].Trim() } else { $dns = '' }
+    $gateway = $ui.TxtNetGateway.Text
+    if ($gateway -eq '...' -or $gateway -eq 'unbekannt') { $gateway = '' }
+
+    $gestartet = Start-Work -Body $script:WorkerQuality -Parameters @{ Gateway = $gateway; Dns = $dns }
+    if ($gestartet) {
+        $ui.BtnQualityStart.IsEnabled = $false
+        $ui.TxtQualityProgress.Text = 'Messung läuft...'
+        Set-Status 'Verbindungsmessung läuft...' 'busy'
+    }
+})
+
+$ui.BtnQualityCopy.Add_Click({
+    if ($script:QualityRows.Count -eq 0) {
+        Set-Status 'Es gibt noch keine Messung zum Kopieren.' 'warn'
+        return
+    }
+    $zeilen = New-Object 'System.Collections.Generic.List[string]'
+    $zeilen.Add("TEE PortChecker - Verbindungsqualität vom $((Get-Date).ToString('yyyy-MM-dd HH:mm'))")
+    $zeilen.Add('')
+    foreach ($z in $script:QualityRows) {
+        $zeilen.Add(("{0,-18} {1,-16} {2,8}   {3}" -f $z.Label, $z.HostText, $z.PingText, $z.DetailText))
+        $zeilen.Add("                   -> $($z.RatingText)")
+    }
+    $zeilen.Add('')
+    $zeilen.Add('Gemessen mit TEE PortChecker - linktr.ee/theersysending')
+    [System.Windows.Clipboard]::SetText(($zeilen -join [Environment]::NewLine))
+    Set-Status 'Bericht in die Zwischenablage kopiert.' 'ok'
+})
+
+# ------------------------------------------------------------------------------
+# Region: IPv6
+# ------------------------------------------------------------------------------
+
+$ui.BtnIpv6Check.Add_Click({
+    if (Start-Work -Body $script:WorkerIpv6) {
+        $ui.BtnIpv6Check.IsEnabled = $false
+        $ui.TxtIpv6Title.Text = 'Prüfung läuft...'
+    }
+})
+
+# ------------------------------------------------------------------------------
+# Region: UPnP-Freigaben verwalten
+# ------------------------------------------------------------------------------
+
+foreach ($eintrag in @('TCP', 'UDP')) { [void]$ui.CmbUpnpProtocol.Items.Add($eintrag) }
+$ui.CmbUpnpProtocol.SelectedIndex = 0
+
+$ui.BtnUpnpRefresh.Add_Click({
+    if (Start-Work -Body $script:WorkerUpnpConnect) {
+        $ui.BtnUpnpRefresh.IsEnabled = $false
+        Set-Status 'Frage Router ab...' 'busy'
+    }
+})
+
+$ui.BtnUpnpAdd.Add_Click({
+    $zerlegt = ConvertFrom-PortSpec -Spec $ui.TxtUpnpPort.Text
+    if ($zerlegt.Ports.Count -ne 1) {
+        Set-Status 'Bitte genau eine Portnummer eintragen.' 'warn'
+        return
+    }
+    $port = $zerlegt.Ports[0]
+    $protokoll = [string]$ui.CmbUpnpProtocol.SelectedItem
+    $beschreibung = $ui.TxtUpnpDescription.Text.Trim()
+    if (-not $beschreibung) { $beschreibung = 'TEE PortChecker' }
+
+    $lokal = $ui.TxtLocalIp.Text
+    if (-not $lokal -or $lokal -eq '...' -or $lokal -eq 'unbekannt') {
+        Set-Status 'Die lokale IP ist noch nicht bekannt.' 'warn'
+        return
+    }
+
+    # Vor dem Öffnen eines Wegs aus dem Internet ausdrücklich nachfragen -
+    # und wenn der Port als riskant bekannt ist, das auch deutlich sagen.
+    $warnung = ''
+    $risiko = @(Get-RiskyPortCatalog | Where-Object { $_.Port -eq $port })
+    if ($risiko.Count -gt 0) {
+        $warnung = "`n`nACHTUNG: Port $port ($($risiko[0].Name)) gilt als $($risiko[0].Severity.ToLower())es Risiko.`n" +
+                   "$($risiko[0].Why)"
+    }
+
+    $antwort = [System.Windows.MessageBox]::Show(
+        "Port $port/$protokoll wird im Router auf $lokal freigegeben.`n`n" +
+        "Damit ist dieser Rechner auf diesem Port aus dem Internet erreichbar." +
+        "$warnung`n`nWirklich freigeben?",
+        'TEE PortChecker', 'YesNo', $(if ($risiko.Count -gt 0) { 'Warning' } else { 'Question' }))
+    if ($antwort -ne 'Yes') { return }
+
+    $gestartet = Start-Work -Body $script:WorkerUpnpChange -Parameters @{
+        Operation = 'add'; Port = $port; Protocol = $protokoll
+        Client = $lokal; Description = $beschreibung
+    }
+    if ($gestartet) {
+        $ui.BtnUpnpAdd.IsEnabled = $false
+        $ui.BtnUpnpRefresh.IsEnabled = $false
+        Set-Status "Lege Freigabe für Port $port/$protokoll an..." 'busy'
+    }
+})
+
+# Die Entfernen-Knöpfe stecken in der Vorlage der Liste. Ihr Klick steigt bis
+# zum ItemsControl auf, dort wird er zentral abgefangen - so braucht es keinen
+# Handler je Zeile.
+$ui.ItemsUpnpMappings.AddHandler(
+    [System.Windows.Controls.Button]::ClickEvent,
+    [System.Windows.RoutedEventHandler]{
+        param($sender, $eventArgs)
+        $knopf = $eventArgs.OriginalSource
+        if (-not ($knopf -is [System.Windows.Controls.Button])) { return }
+        $schluessel = [string]$knopf.Tag
+        if (-not $schluessel) { return }
+
+        $teile = $schluessel -split '/'
+        if ($teile.Count -ne 2) { return }
+        $port = [int]$teile[0]
+        $protokoll = $teile[1]
+
+        $antwort = [System.Windows.MessageBox]::Show(
+            "Freigabe für Port $port/$protokoll aus dem Router entfernen?",
+            'TEE PortChecker', 'YesNo', 'Question')
+        if ($antwort -ne 'Yes') { return }
+
+        if (Start-Work -Body $script:WorkerUpnpChange -Parameters @{
+                Operation = 'remove'; Port = $port; Protocol = $protokoll }) {
+            $ui.BtnUpnpAdd.IsEnabled = $false
+            $ui.BtnUpnpRefresh.IsEnabled = $false
+            Set-Status "Entferne Freigabe für Port $port/$protokoll..." 'busy'
+        }
+    })
 
 # ------------------------------------------------------------------------------
 # Region: Übersicht
@@ -1512,6 +2064,187 @@ function Show-WelcomeWindow {
 $ui.BtnShowWelcome.Add_Click({ Show-WelcomeWindow })
 
 # ------------------------------------------------------------------------------
+# Region: Ergebnis teilen
+# ------------------------------------------------------------------------------
+
+function Hide-IpAddress {
+    <#
+    .SYNOPSIS
+        Kürzt eine IP-Adresse für die Weitergabe.
+    .DESCRIPTION
+        Aus 203.0.113.47 wird 203.0.xxx.xxx. Der Anbieter bleibt grob
+        erkennbar, die Adresse taugt aber nicht mehr dazu, jemanden gezielt
+        anzugreifen. Die Karte ist zum Teilen gedacht - da hat eine
+        vollständige IP nichts verloren.
+    #>
+    param([string]$Address)
+    if (-not $Address) { return 'unbekannt' }
+    $teile = $Address -split '\.'
+    if ($teile.Count -ne 4) { return 'unbekannt' }
+    return "$($teile[0]).$($teile[1]).xxx.xxx"
+}
+
+function Copy-ShareCardToClipboard {
+    <#
+    .SYNOPSIS
+        Zeichnet die Karte und legt sie als Bild in die Zwischenablage.
+    #>
+    param([Parameter(Mandatory = $true)]$Card)
+
+    $Card.UpdateLayout()
+    $breite = [int][Math]::Ceiling($Card.ActualWidth)
+    $hoehe  = [int][Math]::Ceiling($Card.ActualHeight)
+    if ($breite -le 0 -or $hoehe -le 0) { throw 'Die Karte hat noch keine Größe.' }
+
+    # Doppelte Auflösung: in Discord und auf hochauflösenden Bildschirmen
+    # sieht das Bild sonst matschig aus.
+    $skala      = 2.0
+    $zielBreite = [int]($breite * $skala)
+    $zielHoehe  = [int]($hoehe * $skala)
+    $punktdichte = 96 * $skala
+
+    # Die Werte werden bewusst vorher ausgerechnet und dann über -ArgumentList
+    # übergeben. Schreibt man die Ausdrücke direkt in die Klammer hinter
+    # New-Object, packt PowerShell sie zu EINEM Array zusammen - der Aufruf
+    # scheitert dann mit "System.Object[] kann nicht in System.UInt32
+    # konvertiert werden", was den Grund gut versteckt.
+    $bitmap = New-Object System.Windows.Media.Imaging.RenderTargetBitmap -ArgumentList @(
+        $zielBreite, $zielHoehe, $punktdichte, $punktdichte,
+        [System.Windows.Media.PixelFormats]::Pbgra32)
+    $bitmap.Render($Card)
+    $bitmap.Freeze()
+
+    [System.Windows.Clipboard]::SetImage($bitmap)
+    return $bitmap
+}
+
+function Show-ShareWindow {
+    <#
+    .SYNOPSIS
+        Zeigt die teilbare Ergebniskarte und legt sie in die Zwischenablage.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($script:RawResults.Count -eq 0) {
+        Set-Status 'Es gibt noch kein Ergebnis zum Teilen - erst einen Port-Test laufen lassen.' 'warn'
+        return
+    }
+
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.Load($script:SharePath)
+        $fenster = [System.Windows.Markup.XamlReader]::Load(
+            (New-Object System.Xml.XmlNodeReader -ArgumentList $doc))
+    } catch {
+        Set-Status "Teilen-Fenster ließ sich nicht laden: $($_.Exception.Message)" 'error'
+        return
+    }
+
+    Set-PortCheckTheme -Window $fenster -Theme $script:CurrentTheme
+    $fenster.Owner = $script:Win
+
+    $offen  = @($script:RawResults | Where-Object { $_.Status -eq 'Open' })
+    $zu     = @($script:RawResults | Where-Object { $_.Status -eq 'Closed' })
+    $gesamt = $script:RawResults.Count
+
+    $fenster.FindName('TxtShareOpen').Text   = "$($offen.Count)"
+    $fenster.FindName('TxtShareClosed').Text = "$($zu.Count)"
+    $fenster.FindName('TxtShareTotal').Text  = "$gesamt"
+    $fenster.FindName('TxtShareIp').Text     = Hide-IpAddress $script:PublicIP
+    $fenster.FindName('TxtShareDate').Text   = (Get-Date).ToString('dd.MM.yyyy HH:mm')
+    $fenster.FindName('TxtShareVersion').Text = "v$script:AppVersion"
+
+    $natText = if ($script:LastNat) { $script:LastNat.Title } else { 'ungeprüft' }
+    $fenster.FindName('TxtShareNat').Text = $natText
+
+    $offeneListe = if ($offen.Count -gt 0) {
+        ConvertTo-PortSpec -Ports @($offen | ForEach-Object { $_.Port })
+    } else {
+        'keiner der geprüften Ports'
+    }
+    $fenster.FindName('TxtShareOpenPorts').Text = $offeneListe
+
+    $fenster.FindName('TxtShareSubtitle').Text = "Port-Ergebnis - $gesamt Port(s) geprüft"
+    $fenster.FindName('TxtShareNote').Text =
+        'Geprüft wird die Erreichbarkeit aus dem Internet über TCP. UDP-Ports lassen sich von außen nicht zuverlässig testen.'
+
+    $karte = $fenster.FindName('ShareCard')
+
+    $fenster.FindName('ShareTitleBar').Add_MouseLeftButtonDown({
+        param($sender, $eventArgs)
+        try { [System.Windows.Window]::GetWindow($sender).DragMove() } catch { }
+    })
+
+    $schliessen = {
+        param($sender, $eventArgs)
+        [System.Windows.Window]::GetWindow($sender).Close()
+    }
+    $fenster.FindName('BtnShareClose').Add_Click($schliessen)
+    $fenster.FindName('BtnShareOk').Add_Click($schliessen)
+
+    $fenster.FindName('BtnShareCopy').Add_Click({
+        param($sender, $eventArgs)
+        $f = [System.Windows.Window]::GetWindow($sender)
+        try {
+            [void](Copy-ShareCardToClipboard -Card $f.FindName('ShareCard'))
+            $f.FindName('TxtShareStatus').Text = 'Erneut in die Zwischenablage kopiert.'
+        } catch {
+            $f.FindName('TxtShareStatus').Text = "Kopieren fehlgeschlagen: $($_.Exception.Message)"
+        }
+    })
+
+    $fenster.FindName('BtnShareSave').Add_Click({
+        param($sender, $eventArgs)
+        $f = [System.Windows.Window]::GetWindow($sender)
+        $dialog = New-Object Microsoft.Win32.SaveFileDialog
+        $dialog.Filter = 'PNG-Bild (*.png)|*.png'
+        $dialog.FileName = 'portchecker_{0:yyyy-MM-dd_HHmm}.png' -f (Get-Date)
+        if ($dialog.ShowDialog() -ne $true) { return }
+        try {
+            $bild = Copy-ShareCardToClipboard -Card $f.FindName('ShareCard')
+            $kodierer = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+            $kodierer.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bild))
+            $strom = [System.IO.File]::Create($dialog.FileName)
+            try { $kodierer.Save($strom) } finally { $strom.Dispose() }
+            $f.FindName('TxtShareStatus').Text = "Gespeichert: $($dialog.FileName)"
+        } catch {
+            $f.FindName('TxtShareStatus').Text = "Speichern fehlgeschlagen: $($_.Exception.Message)"
+        }
+    })
+
+    # Sobald das Fenster gezeichnet ist, die Karte automatisch kopieren.
+    $script:ShareFenster = $fenster
+    $fenster.Add_ContentRendered({
+        param($sender, $eventArgs)
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [TimeSpan]::FromMilliseconds(350)
+        $timer.Add_Tick({
+            param($t, $e)
+            $t.Stop()
+            try {
+                [void](Copy-ShareCardToClipboard -Card $script:ShareFenster.FindName('ShareCard'))
+                $script:ShareFenster.FindName('TxtShareStatus').Text = 'In die Zwischenablage kopiert - mit Strg+V einfügen.'
+            } catch {
+                $script:ShareFenster.FindName('TxtShareStatus').Text = "Automatisches Kopieren fehlgeschlagen: $($_.Exception.Message)"
+            }
+            if ($script:ShareCapture) {
+                try {
+                    Save-WindowImage -Path $script:ShareCapture -Window $script:ShareFenster
+                } catch { }
+                $script:ShareFenster.Close()
+            }
+        })
+        $timer.Start()
+    })
+
+    [void]$fenster.ShowDialog()
+    Set-Status 'Ergebniskarte erstellt und in die Zwischenablage gelegt.' 'ok'
+}
+
+$ui.BtnShareResult.Add_Click({ Show-ShareWindow })
+
+# ------------------------------------------------------------------------------
 # Region: Start
 # ------------------------------------------------------------------------------
 
@@ -1590,6 +2323,68 @@ function Set-DemoData {
         [pscustomobject]@{ Address='192.168.1.1'; Server='FRITZ!Box 7590 UPnP/1.0 AVM FRITZ!Box'
                            Location='http://192.168.1.1:49000/igddesc.xml' })
 
+    # UPnP-Verwaltung mit einer harmlosen und einer riskanten Freigabe -
+    # letztere zeigt, wie das Werkzeug davor warnt.
+    $ui.UpnpManageCard.Visibility = 'Visible'
+    $ui.TxtUpnpRouterInfo.Text = 'Router: FRITZ!Box 7590  (192.168.1.1)   -   nach außen: 203.0.113.47'
+    $ui.TxtUpnpState.Text = 'UPnP verfügbar - Freigaben lassen sich hier direkt verwalten.'
+    Show-UpnpMappings @(
+        [pscustomobject]@{ ExternalPort=25565; InternalPort=25565; Protocol='TCP'
+                           Client='192.168.1.42'; Description='Minecraft-Server'; Enabled=$true; LeaseSeconds=0 }
+        [pscustomobject]@{ ExternalPort=3389;  InternalPort=3389;  Protocol='TCP'
+                           Client='192.168.1.42'; Description='Remote'; Enabled=$true; LeaseSeconds=0 }
+        [pscustomobject]@{ ExternalPort=7777;  InternalPort=7777;  Protocol='UDP'
+                           Client='192.168.1.55'; Description='Valheim'; Enabled=$true; LeaseSeconds=0 }
+    )
+
+    # Sicherheits-Check
+    Show-SecurityResult (Get-SecurityAssessment -Results @(
+        [pscustomobject]@{ Port=3389;  Status='Open' }
+        [pscustomobject]@{ Port=445;   Status='Closed' }
+        [pscustomobject]@{ Port=22;    Status='Open' }
+        [pscustomobject]@{ Port=23;    Status='Closed' }
+        [pscustomobject]@{ Port=3306;  Status='Open' }
+        [pscustomobject]@{ Port=5900;  Status='Closed' }
+    ))
+    $ui.ProgSecurity.Value = 100
+    $ui.TxtSecurityProgress.Text = 'Fertig. 20 Risiko-Ports geprüft.'
+
+    # IPv6
+    Show-Ipv6Result ([pscustomobject]@{
+        HasGlobalAddress = $true
+        LocalAddresses   = @('2001:db8:85a3::8a2e:370:7334')
+        InternetWorks    = $true
+        PublicAddress    = '2001:db8:85a3::8a2e:370:7334'
+        Level            = 'Full'
+        Title            = 'IPv6 vorhanden'
+        Reasons          = @(
+            'Dein Anschluss ist über IPv6 im Internet unterwegs.',
+            'Über IPv6 hat jedes Gerät eine eigene, weltweit gültige Adresse - eine Portweiterleitung wie bei IPv4 gibt es hier gar nicht.',
+            'Wenn dein IPv4 an CGNAT hängt, ist das dein Ausweg: Mitspieler und Server, die IPv6 können, erreichen dich direkt.'
+        )
+    })
+
+    # Verbindungsqualität
+    foreach ($zeile in @(
+        @{ L='Dein Router';    H='192.168.1.1'; P='3 ms';  D='min 2 / max 5 / Jitter 0.8 / Verlust 0 %';   R='Sehr gut - niedrig und gleichmässig.'; T='Ok'
+           M='Nur dein Heimnetz. Schwankt es schon hier, liegt es an WLAN, Kabel oder Router.' },
+        @{ L='Dein DNS-Server';H='192.168.1.1'; P='4 ms';  D='min 3 / max 7 / Jitter 1.1 / Verlust 0 %';   R='Sehr gut - niedrig und gleichmässig.'; T='Ok'
+           M='Meist der erste Rechner beim Anbieter. Zeigt die Qualität deiner Anschlussleitung.' },
+        @{ L='Cloudflare';     H='1.1.1.1';     P='14 ms'; D='min 13 / max 18 / Jitter 1.4 / Verlust 0 %'; R='Sehr gut - niedrig und gleichmässig.'; T='Ok'
+           M='Nächstgelegener Knotenpunkt eines weltweiten Netzes. Der Richtwert für deine Verbindung.' },
+        @{ L='Google';         H='8.8.8.8';     P='19 ms'; D='min 17 / max 26 / Jitter 2.1 / Verlust 0 %'; R='Sehr gut - niedrig und gleichmässig.'; T='Ok'
+           M='Zweiter Richtwert. Weicht er stark ab, hakt es an der Wegführung deines Anbieters.' },
+        @{ L='Quad9 (Europa)'; H='9.9.9.9';     P='23 ms'; D='min 21 / max 31 / Jitter 2.6 / Verlust 0 %'; R='Sehr gut - niedrig und gleichmässig.'; T='Ok'
+           M='Dritter Vergleichswert für europäische Ziele.' })) {
+        $script:QualityRows.Add([pscustomobject]@{
+            Label = $zeile.L; HostText = $zeile.H; Meaning = $zeile.M
+            PingText = $zeile.P; DetailText = $zeile.D; RatingText = $zeile.R
+            Accent = (Get-ThemeBrush $zeile.T)
+        })
+    }
+    $ui.ItemsQuality.ItemsSource = $script:QualityRows.ToArray()
+    $ui.TxtQualityProgress.Text = 'Messung abgeschlossen.'
+
     Set-Status 'Beispieldaten - dieses Fenster dient nur den Bildern in der README.' 'ok'
 }
 
@@ -1599,6 +2394,7 @@ $script:Win.Add_Loaded({
     if ($DemoMode) {
         # Keine Netzzugriffe, keine echten Daten.
         Set-DemoData
+        if ($script:ShareCapture) { Show-ShareWindow; $script:Win.Close() }
         return
     }
 
@@ -1678,6 +2474,8 @@ $script:LiveReport   = New-Object 'System.Collections.Generic.List[string]'
 # Willkommensfenster: beim ersten Start automatisch, sonst nur auf Wunsch.
 # Bei Selbsttest und Bildaufnahme bleibt es aus, damit nichts blockiert.
 $script:WelcomeCapture  = $(if ($ShowWelcome -and $CaptureTo) { $CaptureTo } else { '' })
+$script:ShareCapture    = $(if ($ShowShare -and $CaptureTo) { $CaptureTo } else { '' })
+$script:ShareFenster    = $null
 $script:WelcomeFenster  = $null
 $script:WelcomeOffen    = $false
 $script:ZeigeWillkommen = [bool](
@@ -1742,7 +2540,7 @@ if ($SelfTest) {
     # meldet das Ergebnis als Text + Rückgabewert. Kein Fenster, kein Netz.
     $problems = New-Object 'System.Collections.Generic.List[string]'
 
-    foreach ($navName in @('NavDashboard','NavPorts','NavPresets','NavNat','NavHowTo','NavNetwork','NavSettings','NavAbout')) {
+    foreach ($navName in @('NavDashboard','NavPorts','NavPresets','NavNat','NavHowTo','NavSecurity','NavQuality','NavNetwork','NavSettings','NavAbout')) {
         try {
             Show-Page $navName
             if ($ui[$script:Pages[$navName]].Visibility -ne 'Visible') {
@@ -1773,7 +2571,7 @@ if ($SelfTest) {
     exit 1
 }
 
-if ($CaptureTo -and -not $LiveTest) {
+if ($CaptureTo -and -not $LiveTest -and -not $script:ShareCapture) {
     # ACHTUNG: hier bewusst KEIN .GetNewClosure(). Eine so erzeugte Closure
     # bekommt ein eigenes Modul - und darin zeigt $script: auf dessen eigene
     # Ebene, nicht mehr auf dieses Skript. $script:Win wäre dann leer.

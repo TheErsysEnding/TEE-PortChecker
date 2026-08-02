@@ -3,6 +3,61 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [SemVer](https://semver.org/lang/de/).
 
+## [1.1.0] — 2026-08-02
+
+### Neu
+
+- **Portfreigaben im Router verwalten.** Bisher wurde UPnP nur erkannt — jetzt
+  lassen sich vorhandene Freigaben ansehen, neue anlegen und alte entfernen,
+  ohne das Router-Menü zu suchen. Freigaben auf bekannten Risiko-Ports werden
+  farblich hervorgehoben; vor dem Öffnen eines Wegs aus dem Internet wird
+  ausdrücklich nachgefragt.
+- **Sicherheits-Check** über 20 Ports, die aus dem Internet erreichbar ein
+  echtes Risiko wären. Zu jedem Fund steht, was ein Angreifer damit anfangen
+  könnte — eine Warnung ohne Begründung nimmt niemand ernst.
+- **IPv6-Prüfung** auf der NAT-Seite. Für alle, die bei IPv4 an CGNAT hängen,
+  ist das die eigentlich wichtige Frage: über IPv6 braucht es gar keine
+  Portweiterleitung.
+- **Verbindungsqualität**: Antwortzeit, Schwankung und Paketverlust entlang der
+  Kette PC → Router → Anbieter → Internet. Wo die Werte zum ersten Mal schlecht
+  werden, dort sitzt das Problem.
+- **Ergebnis teilen**: eine Karte fürs Weitergeben, die beim Öffnen direkt in
+  der Zwischenablage landet. Die öffentliche IP wird dabei gekürzt — die Karte
+  ist zum Teilen gedacht.
+- Seite **„Ports öffnen"** mit Router-Anleitung, Menüpfaden der verbreitetsten
+  Hersteller und einer ehrlichen Einordnung, wann es nicht am Router liegt.
+
+### Behoben
+
+- **Die Anwendung war nach einem Klick im Willkommensfenster unerreichbar.** Der
+  modale Dialog ging auf, bevor das Hauptfenster gezeichnet war; das
+  Hauptfenster blieb dadurch unsichtbar, hatte aber den Taskleisten-Eintrag,
+  während das sichtbare Fenster keinen hatte. Nahm ein anderes Programm den
+  Fokus, war nur noch Alt+Tab übrig.
+- **Die UPnP-Suche gab dem Router die Schuld, wenn Windows schuld war.** Stuft
+  Windows das Netzwerk als „öffentlich" ein, blockiert die Firewall die
+  Antworten des Routers — die Suche kann dann gar nichts finden. Dieser Fall
+  wird jetzt erkannt und erklärt.
+- **SSDP-Suche verlor Pakete** und nutzte auf Rechnern mit mehreren Adaptern
+  womöglich den falschen. Die Anfrage geht jetzt gebunden an die richtige
+  Adresse hinaus, mehrfach und mit mehreren Suchbegriffen.
+- **Fehlernummern des Routers gingen verloren.** Bei einer Ablehnung stand
+  überall nur „Fehler 0" statt „Port bereits vergeben" — der Antwortkörper war
+  zu diesem Zeitpunkt bereits verbraucht. Die SOAP-Aufrufe laufen deshalb jetzt
+  über `HttpWebRequest`.
+- Eine unlesbare Antwort des Routers wurde als Ablehnung ausgegeben. Beides ist
+  jetzt unterscheidbar.
+
+### Sonstiges
+
+- **Crimson ist die neue Voreinstellung** und steht an erster Stelle der
+  Farbwelten, damit sie auch der Rückfallwert ist.
+- Testsuite von 100 auf 136 Tests. Neu darunter ein **nachgebauter
+  UPnP-Router**, gegen den der komplette Weg geprüft wird: Beschreibung lesen,
+  Steuer-Adresse finden, auflisten, anlegen, löschen — samt der Fehlernummern,
+  die echte Geräte zurückgeben. So ist die Funktion abgesichert, ohne bei jedem
+  Testlauf Ports in fremden Netzen zu öffnen.
+
 ## [1.0.0] — 2026-08-02
 
 Erste Veröffentlichung von **TEE PortChecker**.

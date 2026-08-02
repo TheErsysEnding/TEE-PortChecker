@@ -436,6 +436,322 @@ Test-Case 'Textbericht enthält die Zusammenfassung' {
 Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------------------------
+Start-Group 'Sicherheits-Check'
+# ------------------------------------------------------------------------------
+
+. (Join-Path $script:SrcDir 'PortCheck.Diagnose.ps1')
+
+$risiko = @(Get-RiskyPortCatalog)
+
+Test-Case 'Katalog ist gefüllt' { $risiko.Count -ge 15 }
+Test-Case 'Jeder Eintrag hat Name, Einstufung und Begründung' {
+    $luecken = @($risiko | Where-Object { -not $_.Name -or -not $_.Severity -or -not $_.Why })
+    if ($luecken.Count -eq 0) { return $true }
+    return 'unvollständig: ' + (($luecken | ForEach-Object { $_.Port }) -join ', ')
+}
+Test-Case 'Nur bekannte Einstufungen kommen vor' {
+    $erlaubt = @('Kritisch', 'Hoch', 'Mittel')
+    @($risiko | Where-Object { $erlaubt -notcontains $_.Severity }).Count -eq 0
+}
+Test-Case 'Keine doppelten Ports im Katalog' {
+    @($risiko | Group-Object Port | Where-Object { $_.Count -gt 1 }).Count -eq 0
+}
+Test-Case 'Die gefährlichsten Ports sind erfasst' {
+    # Wuerde einer davon fehlen, ginge der wichtigste Fund verloren.
+    $pflicht = @(23, 445, 3389, 5900, 135, 139)
+    $vorhanden = @($risiko | ForEach-Object { $_.Port })
+    $fehlt = @($pflicht | Where-Object { $vorhanden -notcontains $_ })
+    if ($fehlt.Count -eq 0) { return $true }
+    return 'fehlt: ' + ($fehlt -join ', ')
+}
+Test-Case 'Offener RDP-Port ergibt die Stufe Kritisch' {
+    (Get-SecurityAssessment -Results @([pscustomobject]@{ Port = 3389; Status = 'Open' })).Level -eq 'Kritisch'
+}
+Test-Case 'Offener MySQL-Port ergibt die Stufe Warnung' {
+    (Get-SecurityAssessment -Results @([pscustomobject]@{ Port = 3306; Status = 'Open' })).Level -eq 'Warnung'
+}
+Test-Case 'Offener SSH-Port ergibt nur einen Hinweis' {
+    (Get-SecurityAssessment -Results @([pscustomobject]@{ Port = 22; Status = 'Open' })).Level -eq 'Hinweis'
+}
+Test-Case 'Geschlossene Risiko-Ports ergeben keine Meldung' {
+    $r = Get-SecurityAssessment -Results @(
+        [pscustomobject]@{ Port = 3389; Status = 'Closed' }
+        [pscustomobject]@{ Port = 445;  Status = 'Closed' })
+    $r.Level -eq 'Sauber' -and @($r.Findings).Count -eq 0
+}
+Test-Case 'Harmlose offene Ports lösen keinen Alarm aus' {
+    (Get-SecurityAssessment -Results @([pscustomobject]@{ Port = 25565; Status = 'Open' })).Level -eq 'Sauber'
+}
+Test-Case 'Funde sind nach Schwere sortiert' {
+    $r = Get-SecurityAssessment -Results @(
+        [pscustomobject]@{ Port = 22;   Status = 'Open' }
+        [pscustomobject]@{ Port = 3389; Status = 'Open' }
+        [pscustomobject]@{ Port = 3306; Status = 'Open' })
+    $reihe = @($r.Findings | ForEach-Object { $_.Severity })
+    (Assert-Equal @('Kritisch', 'Hoch', 'Mittel') $reihe) -eq $true
+}
+Test-Case 'Die Prüfliste deckt sich mit dem Katalog' {
+    (Assert-Equal @($risiko | ForEach-Object { $_.Port } | Sort-Object -Unique) (Get-SecurityScanPorts)) -eq $true
+}
+
+# ------------------------------------------------------------------------------
+Start-Group 'Verbindungsqualität'
+# ------------------------------------------------------------------------------
+
+function New-Messung {
+    param([bool]$Erreichbar = $true, [double]$Avg = 20, [double]$Jitter = 2, [double]$Loss = 0)
+    [pscustomobject]@{
+        Target = 'test'; Sent = 10; Received = 10; LossPercent = $Loss
+        MinMs = $Avg; AvgMs = $Avg; MaxMs = $Avg; JitterMs = $Jitter; Reachable = $Erreichbar
+    }
+}
+
+Test-Case 'Unerreichbares Ziel wird als solches gemeldet' {
+    (Get-LatencyRating -Measurement (New-Messung -Erreichbar $false)).Level -eq 'Unerreichbar'
+}
+Test-Case 'Hoher Paketverlust wiegt schwerer als ein guter Ping' {
+    # 10 ms Ping nuetzen nichts, wenn jedes zehnte Paket verschwindet.
+    (Get-LatencyRating -Measurement (New-Messung -Avg 10 -Loss 10)).Level -eq 'Schlecht'
+}
+Test-Case 'Geringer Paketverlust wird trotzdem erwähnt' {
+    (Get-LatencyRating -Measurement (New-Messung -Avg 10 -Loss 1)).Level -eq 'Brauchbar'
+}
+Test-Case 'Starke Schwankung wiegt schwerer als ein guter Ping' {
+    (Get-LatencyRating -Measurement (New-Messung -Avg 15 -Jitter 40)).Level -eq 'Schlecht'
+}
+Test-Case 'Niedrig und gleichmässig ergibt Sehr gut' {
+    (Get-LatencyRating -Measurement (New-Messung -Avg 20 -Jitter 2)).Level -eq 'Sehr gut'
+}
+Test-Case 'Hoher Ping ohne Schwankung ergibt Schlecht' {
+    (Get-LatencyRating -Measurement (New-Messung -Avg 200 -Jitter 2)).Level -eq 'Schlecht'
+}
+Test-Case 'Jede Bewertung hat eine Erklärung' {
+    foreach ($m in @((New-Messung -Erreichbar $false), (New-Messung -Avg 10),
+                     (New-Messung -Avg 200), (New-Messung -Loss 9))) {
+        if (-not (Get-LatencyRating -Measurement $m).Text) { return 'Bewertung ohne Text' }
+    }
+    return $true
+}
+Test-Case 'Messkette beginnt beim Router und endet im Internet' {
+    $ziele = Get-NetworkPathTargets -Gateway '192.168.1.1' -Dns '192.168.1.1'
+    if (@($ziele)[0].Label -ne 'Dein Router') { return 'erste Station ist nicht der Router' }
+    # Gleicher DNS wie Gateway -> keine doppelte Station
+    if (@($ziele | Where-Object { $_.Host -eq '192.168.1.1' }).Count -ne 1) { return 'Router doppelt in der Kette' }
+    @($ziele).Count -ge 4
+}
+Test-Case 'Ohne Gateway bleibt die Kette trotzdem nutzbar' {
+    @(Get-NetworkPathTargets -Gateway '' -Dns '').Count -ge 3
+}
+Test-Case 'Messung gegen die eigene Maschine liefert Werte' {
+    $m = Measure-Latency -Target '127.0.0.1' -Count 3 -PauseMs 20
+    $m.Reachable -and $m.Received -eq 3 -and $m.LossPercent -eq 0
+}
+
+# ------------------------------------------------------------------------------
+Start-Group 'UPnP gegen einen simulierten Router'
+# ------------------------------------------------------------------------------
+# Ein echter Router laesst sich in einem Test nicht voraussetzen - und man will
+# auch nicht bei jedem Testlauf Ports in fremden Netzen oeffnen. Deshalb laeuft
+# hier ein kleiner Nachbau eines Internet Gateway Device auf 127.0.0.1, der das
+# SOAP-Protokoll spricht. So wird der komplette Weg geprueft: Beschreibung
+# lesen, Steuer-Adresse finden, auflisten, anlegen, loeschen - samt der
+# Fehlernummern, die echte Router zurueckgeben.
+
+. (Join-Path $script:SrcDir 'PortCheck.Upnp.ps1')
+
+$upnpPort = 52987
+$upnpSync = [hashtable]::Synchronized(@{
+    Running  = $true
+    Mappings = New-Object System.Collections.ArrayList
+})
+[void]$upnpSync.Mappings.Add(@{ Ext = 25565; Int = 25565; Prot = 'TCP'; Client = '192.168.1.42'; Desc = 'Minecraft' })
+[void]$upnpSync.Mappings.Add(@{ Ext = 3074;  Int = 3074;  Prot = 'UDP'; Client = '192.168.1.50'; Desc = 'Konsole' })
+
+$upnpServer = {
+    $listener = New-Object System.Net.HttpListener
+    $listener.Prefixes.Add("http://127.0.0.1:$Port/")
+    $listener.Start()
+
+    function Send-Xml {
+        param($Antwort, [string]$Inhalt, [int]$Status = 200)
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Inhalt)
+        $Antwort.StatusCode = $Status
+        $Antwort.ContentType = 'text/xml; charset="utf-8"'
+        $Antwort.ContentLength64 = $bytes.Length
+        $Antwort.OutputStream.Write($bytes, 0, $bytes.Length)
+        $Antwort.OutputStream.Close()
+    }
+    function New-Fault {
+        param([int]$Code, [string]$Text)
+        '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><s:Fault>' +
+        '<faultcode>s:Client</faultcode><faultstring>UPnPError</faultstring><detail>' +
+        '<UPnPError xmlns="urn:schemas-upnp-org:control-1-0">' +
+        "<errorCode>$Code</errorCode><errorDescription>$Text</errorDescription>" +
+        '</UPnPError></detail></s:Fault></s:Body></s:Envelope>'
+    }
+
+    while ($Sync.Running) {
+        try { $kontext = $listener.GetContext() } catch { break }
+        $anfrage = $kontext.Request
+        $antwort = $kontext.Response
+        $pfad = $anfrage.Url.AbsolutePath
+
+        if ($pfad -eq '/desc.xml') {
+            Send-Xml $antwort ('<?xml version="1.0"?><root xmlns="urn:schemas-upnp-org:device-1-0">' +
+                '<device><friendlyName>Testrouter 1000</friendlyName><deviceList><device>' +
+                '<serviceList><service>' +
+                '<serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>' +
+                '<controlURL>/ctl</controlURL>' +
+                '</service></serviceList></device></deviceList></device></root>')
+            continue
+        }
+
+        if ($pfad -ne '/ctl') { Send-Xml $antwort '<x/>' 404; continue }
+
+        $leser = New-Object System.IO.StreamReader($anfrage.InputStream, [System.Text.Encoding]::UTF8)
+        $koerper = $leser.ReadToEnd()
+        $leser.Dispose()
+        $aktion = ''
+        if ($anfrage.Headers['SOAPAction'] -match '#(\w+)') { $aktion = $Matches[1] }
+
+        switch ($aktion) {
+            'GetExternalIPAddress' {
+                Send-Xml $antwort ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' +
+                    '<u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">' +
+                    '<NewExternalIPAddress>203.0.113.47</NewExternalIPAddress>' +
+                    '</u:GetExternalIPAddressResponse></s:Body></s:Envelope>')
+            }
+            'GetGenericPortMappingEntry' {
+                $index = -1
+                if ($koerper -match '<NewPortMappingIndex>(\d+)</NewPortMappingIndex>') { $index = [int]$Matches[1] }
+                if ($index -ge 0 -and $index -lt $Sync.Mappings.Count) {
+                    $e = $Sync.Mappings[$index]
+                    Send-Xml $antwort ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>' +
+                        '<u:GetGenericPortMappingEntryResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">' +
+                        "<NewRemoteHost></NewRemoteHost><NewExternalPort>$($e.Ext)</NewExternalPort>" +
+                        "<NewProtocol>$($e.Prot)</NewProtocol><NewInternalPort>$($e.Int)</NewInternalPort>" +
+                        "<NewInternalClient>$($e.Client)</NewInternalClient><NewEnabled>1</NewEnabled>" +
+                        "<NewPortMappingDescription>$($e.Desc)</NewPortMappingDescription>" +
+                        '<NewLeaseDuration>0</NewLeaseDuration>' +
+                        '</u:GetGenericPortMappingEntryResponse></s:Body></s:Envelope>')
+                } else {
+                    Send-Xml $antwort (New-Fault 713 'SpecifiedArrayIndexInvalid') 500
+                }
+            }
+            'AddPortMapping' {
+                $ext = 0; $prot = ''
+                if ($koerper -match '<NewExternalPort>(\d+)</NewExternalPort>') { $ext = [int]$Matches[1] }
+                if ($koerper -match '<NewProtocol>(\w+)</NewProtocol>')         { $prot = $Matches[1] }
+                $schon = @($Sync.Mappings | Where-Object { $_.Ext -eq $ext -and $_.Prot -eq $prot })
+                if ($schon.Count -gt 0) {
+                    Send-Xml $antwort (New-Fault 718 'ConflictInMappingEntry') 500
+                } else {
+                    $client = ''
+                    if ($koerper -match '<NewInternalClient>([^<]*)</NewInternalClient>') { $client = $Matches[1] }
+                    [void]$Sync.Mappings.Add(@{ Ext = $ext; Int = $ext; Prot = $prot; Client = $client; Desc = 'TEE PortChecker' })
+                    Send-Xml $antwort ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
+                        '<s:Body><u:AddPortMappingResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1"/></s:Body></s:Envelope>')
+                }
+            }
+            'DeletePortMapping' {
+                $ext = 0; $prot = ''
+                if ($koerper -match '<NewExternalPort>(\d+)</NewExternalPort>') { $ext = [int]$Matches[1] }
+                if ($koerper -match '<NewProtocol>(\w+)</NewProtocol>')         { $prot = $Matches[1] }
+                $treffer = @($Sync.Mappings | Where-Object { $_.Ext -eq $ext -and $_.Prot -eq $prot })
+                if ($treffer.Count -gt 0) {
+                    $Sync.Mappings.Remove($treffer[0])
+                    Send-Xml $antwort ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
+                        '<s:Body><u:DeletePortMappingResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1"/></s:Body></s:Envelope>')
+                } else {
+                    Send-Xml $antwort (New-Fault 714 'NoSuchEntryInArray') 500
+                }
+            }
+            default { Send-Xml $antwort (New-Fault 401 'InvalidAction') 500 }
+        }
+    }
+    try { $listener.Stop(); $listener.Close() } catch { }
+}
+
+$upnpRs = [runspacefactory]::CreateRunspace()
+$upnpRs.Open()
+$upnpRs.SessionStateProxy.SetVariable('Sync', $upnpSync)
+$upnpRs.SessionStateProxy.SetVariable('Port', $upnpPort)
+$upnpPs = [powershell]::Create()
+$upnpPs.Runspace = $upnpRs
+[void]$upnpPs.AddScript($upnpServer)
+$upnpHandle = $upnpPs.BeginInvoke()
+Start-Sleep -Milliseconds 700
+
+$script:Steuerpunkt = $null
+
+Test-Case 'Geräte-Beschreibung wird gelesen und die Steuer-Adresse gefunden' {
+    $script:Steuerpunkt = Get-UpnpControlPoint -Location "http://127.0.0.1:$upnpPort/desc.xml"
+    if (-not $script:Steuerpunkt) { return 'kein Steuerpunkt gefunden' }
+    if ($script:Steuerpunkt.ControlUrl -ne "http://127.0.0.1:$upnpPort/ctl") {
+        return "unerwartete Steuer-Adresse: $($script:Steuerpunkt.ControlUrl)"
+    }
+    $script:Steuerpunkt.DeviceName -eq 'Testrouter 1000'
+}
+Test-Case 'Relative Steuer-Adresse wird zur vollständigen ergänzt' {
+    $script:Steuerpunkt.ControlUrl -like 'http://*/ctl'
+}
+Test-Case 'Externe Adresse wird vom Router abgefragt' {
+    (Get-UpnpExternalAddress -ControlPoint $script:Steuerpunkt) -eq '203.0.113.47'
+}
+Test-Case 'Vorhandene Freigaben werden vollständig aufgelistet' {
+    $liste = Get-UpnpPortMappings -ControlPoint $script:Steuerpunkt
+    if (@($liste).Count -ne 2) { return "erwartet 2, bekommen $(@($liste).Count)" }
+    $liste[0].ExternalPort -eq 25565 -and $liste[0].Protocol -eq 'TCP' -and
+    $liste[1].ExternalPort -eq 3074 -and $liste[1].Description -eq 'Konsole'
+}
+Test-Case 'Auflisten endet sauber am Ende der Liste' {
+    # Der Router meldet Fehler 713, sobald der Index über das Ende hinausgeht.
+    # Wird das nicht erkannt, laeuft die Schleife bis MaxEntries durch.
+    @(Get-UpnpPortMappings -ControlPoint $script:Steuerpunkt -MaxEntries 60).Count -eq 2
+}
+Test-Case 'Neue Freigabe wird angelegt' {
+    $r = Add-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 27015 `
+             -InternalPort 27015 -InternalClient '192.168.1.42' -Protocol 'TCP'
+    if (-not $r.Success) { return $r.Message }
+    @(Get-UpnpPortMappings -ControlPoint $script:Steuerpunkt).Count -eq 3
+}
+Test-Case 'Bereits vergebener Port wird verständlich abgelehnt' {
+    $r = Add-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 27015 `
+             -InternalPort 27015 -InternalClient '192.168.1.42' -Protocol 'TCP'
+    if ($r.Success) { return 'haette abgelehnt werden muessen' }
+    $r.Message -like '*bereits*'
+}
+Test-Case 'Freigabe wird wieder entfernt' {
+    $r = Remove-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 27015 -Protocol 'TCP'
+    if (-not $r.Success) { return $r.Message }
+    @(Get-UpnpPortMappings -ControlPoint $script:Steuerpunkt).Count -eq 2
+}
+Test-Case 'Entfernen einer nicht vorhandenen Freigabe wird erklärt' {
+    $r = Remove-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 45678 -Protocol 'TCP'
+    if ($r.Success) { return 'haette fehlschlagen muessen' }
+    $r.Message -like '*gar keine Freigabe*'
+}
+Test-Case 'Unbekannte Aktion liefert die Fehlernummer des Routers' {
+    $r = Invoke-UpnpAction -ControlPoint $script:Steuerpunkt -Action 'GibtEsNicht'
+    (-not $r.Success) -and $r.ErrorCode -eq 401
+}
+Test-Case 'Sonderzeichen in der Beschreibung werden XML-sicher übergeben' {
+    # Ohne Maskierung wuerde ein & den SOAP-Umschlag zerreissen.
+    $r = Add-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 27016 `
+             -InternalPort 27016 -InternalClient '192.168.1.42' -Protocol 'TCP' `
+             -Description 'Test & <Zeichen>'
+    if (-not $r.Success) { return $r.Message }
+    [void](Remove-UpnpPortMapping -ControlPoint $script:Steuerpunkt -ExternalPort 27016 -Protocol 'TCP')
+    return $true
+}
+
+# Simulierten Router beenden
+$upnpSync.Running = $false
+try { Invoke-WebRequest "http://127.0.0.1:$upnpPort/ende" -TimeoutSec 2 -UseBasicParsing | Out-Null } catch { }
+try { $upnpPs.Stop() } catch { }
+try { $upnpPs.Dispose(); $upnpRs.Close(); $upnpRs.Dispose() } catch { }
+
+# ------------------------------------------------------------------------------
 Start-Group 'Quelldateien'
 # ------------------------------------------------------------------------------
 
@@ -717,7 +1033,8 @@ if ($script:GuiVerfuegbar) {
     }
     Test-Case 'Alle Verweis-Schaltflächen sind im XAML vorhanden' {
         $namen = @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord', 'BtnSideLinktree',
-                   'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnShowWelcome', 'BtnPureVpn')
+                   'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnShowWelcome', 'BtnPureVpn',
+                   'BtnShareResult', 'BtnSecurityScan', 'BtnQualityStart', 'BtnIpv6Check', 'BtnUpnpAdd')
         $fehlt = @($namen | Where-Object { $null -eq $script:Fenster.FindName($_) })
         if ($fehlt.Count -eq 0) { return $true }
         return 'fehlt: ' + ($fehlt -join ', ')

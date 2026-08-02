@@ -225,7 +225,7 @@
                             <TextBlock FontFamily="{StaticResource DisplayFont}" FontSize="23">
                                 <Run Text="TEE" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}"/><Run Text=" PortChecker" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"/>
                             </TextBlock>
-                            <TextBlock x:Name="TxtWelcomeVersion" Text="Version 1.0.0" FontSize="11"
+                            <TextBlock x:Name="TxtWelcomeVersion" Text="Version 1.1.0" FontSize="11"
                                        Margin="0,2,0,0" Foreground="{DynamicResource FgFaintBrush}"/>
                         </StackPanel>
                     </StackPanel>

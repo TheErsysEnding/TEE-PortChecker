@@ -997,7 +997,7 @@
                         </TextBlock>
                         <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="4"
                                 Padding="6,2" Margin="9,0,0,0" VerticalAlignment="Center">
-                            <TextBlock x:Name="TxtVersionChip" Text="v1.0.0" FontSize="10"
+                            <TextBlock x:Name="TxtVersionChip" Text="v1.1.0" FontSize="10"
                                        Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold"/>
                         </Border>
                     </StackPanel>
@@ -1043,6 +1043,10 @@
                                          GroupName="Nav" Tag="&#xE774;" Content="NAT-Typ"/>
                             <RadioButton x:Name="NavHowTo" Style="{StaticResource NavItem}"
                                          GroupName="Nav" Tag="&#xE785;" Content="Ports öffnen"/>
+                            <RadioButton x:Name="NavSecurity" Style="{StaticResource NavItem}"
+                                         GroupName="Nav" Tag="&#xE9D5;" Content="Sicherheit"/>
+                            <RadioButton x:Name="NavQuality" Style="{StaticResource NavItem}"
+                                         GroupName="Nav" Tag="&#xE945;" Content="Verbindung"/>
 
                             <TextBlock Text="SYSTEM" Style="{StaticResource Label}" Margin="22,18,0,8"/>
                             <RadioButton x:Name="NavNetwork" Style="{StaticResource NavItem}"
@@ -1310,6 +1314,9 @@
                                         <ComboBox x:Name="CmbFilter" Width="150" Margin="0,0,8,0"/>
                                         <Button x:Name="BtnCopyOpen" Style="{StaticResource GhostButton}"
                                                 Content="Offene kopieren" Margin="0,0,8,0"/>
+                                        <Button x:Name="BtnShareResult" Style="{StaticResource GhostButton}"
+                                                Content="Teilen" Margin="0,0,8,0"
+                                                ToolTip="Ergebnis als Bild für Discord - deine IP wird dabei gekürzt"/>
                                         <Button x:Name="BtnExport" Style="{StaticResource GhostButton}"
                                                 Content="Exportieren" Margin="0,0,8,0"/>
                                         <Button x:Name="BtnClearResults" Style="{StaticResource GhostButton}"
@@ -1531,6 +1538,40 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- IPv6: für CGNAT-Betroffene die eigentlich
+                                 entscheidende Frage. -->
+                            <Border Style="{StaticResource Card}" Margin="0,14,12,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="Ipv6Icon" Style="{StaticResource Icon}" Text="&#xE774;"
+                                                       FontSize="15" Foreground="{DynamicResource FgFaintBrush}"/>
+                                            <TextBlock Text="IPv6 - der Ausweg bei CGNAT" Style="{StaticResource H2}"
+                                                       Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                        <Button x:Name="BtnIpv6Check" Style="{StaticResource GhostButton}"
+                                                Content="IPv6 prüfen" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <TextBlock x:Name="TxtIpv6Title" Style="{StaticResource H2}" FontSize="15"
+                                               Margin="0,12,0,0" Text="Noch nicht geprüft"/>
+                                    <TextBlock x:Name="TxtIpv6Address" Style="{StaticResource Mono}" FontSize="12"
+                                               Margin="0,4,0,0" Visibility="Collapsed"/>
+                                    <ItemsControl x:Name="ItemsIpv6Reasons" Margin="0,10,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                                    <Ellipse Width="4" Height="4" Margin="2,8,9,0"
+                                                             VerticalAlignment="Top"
+                                                             Fill="{DynamicResource AccentBrush}"/>
+                                                    <TextBlock Text="{Binding}" Style="{StaticResource Body}"
+                                                               MaxWidth="700" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
                             <Border Style="{StaticResource Card}" Margin="0,14,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Was die Stufen bedeuten" Style="{StaticResource H2}"/>
@@ -1676,6 +1717,191 @@
                         </StackPanel>
                     </ScrollViewer>
 
+                    <!-- ===================== SICHERHEIT ===================== -->
+                    <ScrollViewer x:Name="PageSecurity" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                  Padding="28,24,20,24">
+                        <StackPanel>
+                            <TextBlock Text="Sicherheit" Style="{StaticResource H1}"/>
+                            <TextBlock Style="{StaticResource Body}" Margin="0,6,0,18" MaxWidth="820"
+                                       HorizontalAlignment="Left"
+                                       Text="Prüft die Ports, die aus dem Internet erreichbar ein echtes Risiko wären: Windows-Freigaben, Remotedesktop, Datenbanken, Fernwartung. Zu jedem Fund steht, was ein Angreifer damit anfangen könnte."/>
+
+                            <Border x:Name="SecurityResultCard" Style="{StaticResource Card}" Margin="0,0,12,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="SecurityBadge" Grid.Column="0" Width="118" Height="118"
+                                            CornerRadius="14" Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1.5">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="SecurityBadgeIcon" Style="{StaticResource Icon}"
+                                                       Text="&#xE9CE;" FontSize="32"
+                                                       Foreground="{DynamicResource FgFaintBrush}"/>
+                                            <TextBlock x:Name="SecurityBadgeText" Text="?" FontSize="14" FontWeight="Bold"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0"
+                                                       Foreground="{DynamicResource FgFaintBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock x:Name="TxtSecurityTitle" Text="Noch nicht geprüft"
+                                                   Style="{StaticResource H2}" FontSize="18"/>
+                                        <TextBlock x:Name="TxtSecuritySummary" Style="{StaticResource Body}"
+                                                   Margin="0,6,0,0" MaxWidth="640" HorizontalAlignment="Left"
+                                                   Text="Der Durchlauf prüft 20 bekannte Risiko-Ports. Das dauert je nach eingestellter Pause einige Minuten."/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button x:Name="BtnSecurityScan" Style="{StaticResource AccentButton}"
+                                                    Content="Sicherheits-Check starten"/>
+                                            <Button x:Name="BtnSecurityStop" Style="{StaticResource DangerButton}"
+                                                    Content="Abbrechen" Margin="8,0,0,0" IsEnabled="False"/>
+                                        </StackPanel>
+                                        <ProgressBar x:Name="ProgSecurity" Minimum="0" Maximum="100" Value="0"
+                                                     Margin="0,14,0,0"/>
+                                        <TextBlock x:Name="TxtSecurityProgress" Style="{StaticResource Caption}"
+                                                   Margin="0,7,0,0" Text="Bereit."/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <ItemsControl x:Name="ItemsSecurityFindings" Margin="0,14,12,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="10" Padding="16,13" Margin="0,0,0,10"
+                                                Background="{DynamicResource CardBrush}"
+                                                BorderBrush="{Binding Accent}" BorderThickness="1,1,1,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="4" CornerRadius="2"
+                                                        Background="{Binding Accent}" Margin="0,2,14,2"/>
+                                                <StackPanel Grid.Column="1">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Border Background="{Binding AccentSoft}" CornerRadius="4"
+                                                                Padding="8,2">
+                                                            <TextBlock Text="{Binding Severity}" FontSize="10"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{Binding Accent}"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding Headline}" FontWeight="SemiBold"
+                                                                   FontSize="14" Margin="10,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource FgBrush}"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Why}" Style="{StaticResource Body}"
+                                                               Margin="0,7,0,0" MaxWidth="760"
+                                                               HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Style="{StaticResource Card}" Margin="0,4,12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Was ein Fund bedeutet" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                               Text="Ein offener Risiko-Port heisst nicht, dass jemand eingebrochen ist. Er heisst: dieser Weg steht offen, und solche Wege werden automatisiert und rund um die Uhr abgeklopft."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Der übliche Weg zurück: die entsprechende Portweiterleitung im Router löschen. Findet sich dort keine, hat womöglich ein Programm sie selbst per UPnP angelegt - im Reiter Netzwerk lassen sich alle Freigaben des Routers ansehen und einzeln entfernen."/>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
+                                               Text="Ehrlich dazugesagt: geprüft wird nur diese Auswahl bekannter Risiko-Ports über TCP. Das ist kein vollständiger Sicherheitstest und ersetzt keine Fachprüfung - es findet die häufigsten und gefährlichsten Fehlkonfigurationen."/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ===================== VERBINDUNG ===================== -->
+                    <ScrollViewer x:Name="PageQuality" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                  Padding="28,24,20,24">
+                        <StackPanel>
+                            <TextBlock Text="Verbindungsqualität" Style="{StaticResource H1}"/>
+                            <TextBlock Style="{StaticResource Body}" Margin="0,6,0,18" MaxWidth="840"
+                                       HorizontalAlignment="Left"
+                                       Text="Gemessen wird die Kette vom eigenen Rechner bis ins Internet - in genau dieser Reihenfolge. Wo die Werte zum ersten Mal schlecht werden, dort sitzt das Problem. Schwankt es schon beim Router, liegt es am WLAN und nicht am Anbieter."/>
+
+                            <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Messkette" Style="{StaticResource H2}" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnQualityStart" Style="{StaticResource AccentButton}"
+                                                    Content="Messung starten"/>
+                                            <Button x:Name="BtnQualityCopy" Style="{StaticResource GhostButton}"
+                                                    Content="Bericht kopieren" Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="TxtQualityProgress" Style="{StaticResource Caption}"
+                                               Margin="0,10,0,0" Text="Noch nicht gemessen. Der Durchlauf dauert rund 15 Sekunden."/>
+
+                                    <ItemsControl x:Name="ItemsQuality" Margin="0,14,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="9"
+                                                        Padding="15,12" Margin="0,0,0,9"
+                                                        BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                                           FontSize="13"
+                                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                                <TextBlock Text="{Binding HostText}" FontSize="11"
+                                                                           Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                           FontFamily="{StaticResource MonoFont}"
+                                                                           Foreground="{DynamicResource FgFaintBrush}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Meaning}" FontSize="11"
+                                                                       Margin="0,4,0,0" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource FgFaintBrush}"/>
+                                                            <TextBlock Text="{Binding RatingText}" FontSize="11"
+                                                                       Margin="0,5,0,0" TextWrapping="Wrap"
+                                                                       Foreground="{Binding Accent}"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right"
+                                                                    VerticalAlignment="Center" MinWidth="190">
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                <TextBlock Text="{Binding PingText}" FontSize="19"
+                                                                           FontWeight="SemiBold"
+                                                                           FontFamily="{StaticResource MonoFont}"
+                                                                           Foreground="{Binding Accent}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding DetailText}" FontSize="11"
+                                                                       Margin="0,3,0,0" HorizontalAlignment="Right"
+                                                                       FontFamily="{StaticResource MonoFont}"
+                                                                       Foreground="{DynamicResource FgFaintBrush}"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,14,12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Wie die Werte zu lesen sind" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                               Text="Antwortzeit (Ping) - wie lange ein Paket hin und zurück braucht. Unter 30 ms ist sehr gut, bis 70 ms für alles ausreichend, ab 120 ms bei schnellen Shootern spürbar."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Schwankung (Jitter) - wie stark die Antwortzeit springt. Beim Spielen oft wichtiger als der Ping selbst: gleichmässige 60 ms fühlen sich besser an als 30 ms, die ständig auf 120 hochgehen."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Paketverlust - wie viele Pakete unterwegs verschwinden. Alles über 0 % ist beim Spielen zu viel; ab 5 % reissen Verbindungen ab."/>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
+                                               Text="Warum kein Ping zum Spieleserver? Weil die meisten Spieleserver gar nicht auf Ping antworten - so ein Wert wäre schlicht erfunden. Die Messkette hier zeigt stattdessen, an welcher Stelle deiner Verbindung es hakt, und das ist die Information, mit der man etwas anfangen kann."/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
                     <!-- ===================== NETZWERK ===================== -->
                     <ScrollViewer x:Name="PageNetwork" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
                                   Padding="28,24,20,24">
@@ -1783,6 +2009,97 @@
                                                Text="Antwortet dein Router hier, kann er Ports auf Zuruf selbst freigeben. Viele Spiele nutzen das automatisch - dann sparst du dir die Handarbeit im Router."/>
                                     <TextBlock x:Name="TxtUpnpState" Style="{StaticResource Mono}" FontSize="13"
                                                Text="Noch nicht gesucht."/>
+
+                                    <!-- Portfreigaben verwalten -->
+                                    <Border x:Name="UpnpManageCard" Visibility="Collapsed" Margin="0,14,0,0"
+                                            CornerRadius="9" Padding="15,13"
+                                            Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="Freigaben im Router" Style="{StaticResource H2}"
+                                                           FontSize="14" VerticalAlignment="Center"/>
+                                                <Button x:Name="BtnUpnpRefresh" Style="{StaticResource GhostButton}"
+                                                        Content="Liste aktualisieren" HorizontalAlignment="Right"/>
+                                            </Grid>
+                                            <TextBlock x:Name="TxtUpnpRouterInfo" Style="{StaticResource Caption}"
+                                                       Margin="0,6,0,0"/>
+
+                                            <ItemsControl x:Name="ItemsUpnpMappings" Margin="0,12,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{DynamicResource CardBrush}" CornerRadius="7"
+                                                                Padding="13,10" Margin="0,0,0,7"
+                                                                BorderBrush="{Binding Accent}" BorderThickness="1">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Border Grid.Column="0" Background="{Binding AccentSoft}"
+                                                                        CornerRadius="5" Padding="9,4"
+                                                                        VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding PortText}" FontSize="12"
+                                                                               FontWeight="SemiBold"
+                                                                               FontFamily="{StaticResource MonoFont}"
+                                                                               Foreground="{Binding Accent}"/>
+                                                                </Border>
+                                                                <StackPanel Grid.Column="1" Margin="12,0,10,0"
+                                                                            VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding Description}" FontSize="12"
+                                                                               FontWeight="SemiBold"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Foreground="{DynamicResource FgBrush}"/>
+                                                                    <TextBlock Text="{Binding TargetText}" FontSize="11"
+                                                                               Margin="0,2,0,0"
+                                                                               FontFamily="{StaticResource MonoFont}"
+                                                                               Foreground="{DynamicResource FgFaintBrush}"/>
+                                                                    <TextBlock Text="{Binding RiskText}" FontSize="11"
+                                                                               Margin="0,3,0,0" TextWrapping="Wrap"
+                                                                               Visibility="{Binding RiskVisible}"
+                                                                               Foreground="{Binding Accent}"/>
+                                                                </StackPanel>
+                                                                <Button Grid.Column="2" Tag="{Binding Key}"
+                                                                        Style="{StaticResource DangerButton}"
+                                                                        Content="Entfernen" VerticalAlignment="Center"
+                                                                        FontSize="11" Padding="11,6"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <TextBlock x:Name="TxtUpnpMappingsEmpty" Style="{StaticResource Caption}"
+                                                       Margin="0,2,0,0"
+                                                       Text="Im Router ist derzeit keine Portfreigabe eingetragen."/>
+
+                                            <Border Height="1" Background="{DynamicResource StrokeSoftBrush}"
+                                                    Margin="0,14,0,14"/>
+
+                                            <TextBlock Text="NEUE FREIGABE ANLEGEN" Style="{StaticResource Label}"/>
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox x:Name="TxtUpnpPort" Grid.Column="0" Height="34"
+                                                         Tag="Port" FontFamily="{StaticResource MonoFont}"/>
+                                                <ComboBox x:Name="CmbUpnpProtocol" Grid.Column="1" Height="34"
+                                                          Margin="8,0,0,0"/>
+                                                <TextBox x:Name="TxtUpnpDescription" Grid.Column="2" Height="34"
+                                                         Margin="8,0,0,0" Tag="Beschreibung (frei wählbar)"/>
+                                                <Button x:Name="BtnUpnpAdd" Grid.Column="3"
+                                                        Style="{StaticResource AccentButton}"
+                                                        Content="Freigeben" Margin="8,0,0,0" Height="34"/>
+                                            </Grid>
+                                            <TextBlock Style="{StaticResource Caption}" Margin="0,9,0,0" TextWrapping="Wrap"
+                                                       Text="Die Freigabe zeigt auf diesen Rechner und öffnet einen Weg aus dem Internet hierher. Vor dem Anlegen wird nachgefragt, und entfernen lässt sie sich jederzeit mit einem Klick."/>
+                                        </StackPanel>
+                                    </Border>
+
                                     <ItemsControl x:Name="ItemsUpnp" Margin="0,10,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>

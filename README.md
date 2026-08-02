@@ -162,10 +162,50 @@ Portweiterleitung.
 
 ![Ports öffnen](docs/images/08-ports-oeffnen.png)
 
-### Netzwerk & UPnP
+### Sicherheits-Check
 
-Adapter, Gateway, DNS — und eine SSDP-Suche nach UPnP-fähigen Routern. Antwortet
-dein Router, können Spiele Ports selbst freigeben und du sparst dir die Handarbeit.
+Prüft 20 Ports, die aus dem Internet erreichbar ein echtes Risiko wären —
+Windows-Freigaben, Remotedesktop, Datenbanken, Fernwartung. Zu jedem Fund steht,
+**was ein Angreifer damit anfangen könnte**. Eine Warnung ohne Begründung nimmt
+niemand ernst.
+
+![Sicherheit](docs/images/10-sicherheit.png)
+
+### Verbindungsqualität
+
+Misst Antwortzeit, Schwankung und Paketverlust entlang der Kette
+**PC → Router → Anbieter → Internet** — in genau dieser Reihenfolge. Wo die Werte
+zum ersten Mal schlecht werden, dort sitzt das Problem. Schwankt es schon beim
+Router, liegt es am WLAN und nicht am Anbieter.
+
+> Warum kein „Ping zum Spieleserver"? Weil die meisten Spieleserver gar nicht auf
+> Ping antworten — so ein Wert wäre schlicht erfunden.
+
+![Verbindungsqualität](docs/images/11-verbindung.png)
+
+### Ergebnis teilen
+
+Ein Klick erzeugt eine Karte fürs Weitergeben und legt sie **direkt in die
+Zwischenablage** — Strg+V in Discord genügt.
+
+**Deine öffentliche IP wird dabei absichtlich gekürzt** (`203.0.xxx.xxx`). Die
+Karte ist zum Teilen gedacht; eine vollständige IP hat darauf nichts verloren.
+
+![Ergebnis teilen](docs/images/09-teilen.png)
+
+### Netzwerk, UPnP und Portfreigaben
+
+Adapter, Gateway, DNS — und mehr als nur eine UPnP-Erkennung: **Portfreigaben des
+Routers lassen sich hier ansehen, anlegen und wieder entfernen**, ohne das
+Router-Menü zu suchen.
+
+Das deckt oft Überraschendes auf: UPnP kennt keine Anmeldung, jedes Programm im
+Heimnetz darf Ports öffnen. Freigaben auf bekannten Risiko-Ports werden farblich
+hervorgehoben.
+
+Findet die Suche nichts, nennt das Werkzeug den **wahren Grund** statt dem Router
+die Schuld zu geben — meistens stuft Windows das Netzwerk als „öffentlich" ein,
+und dann blockiert die Firewall die Antworten des Routers.
 
 ![Netzwerk](docs/images/05-netzwerk.png)
 
@@ -255,7 +295,7 @@ TEE-PortChecker/
 │  ├─ PortCheck.Cli.ps1       Konsolenfassung
 │  ├─ PortCheck.Core.ps1      Messlogik — ohne jede Oberfläche
 │  ├─ PortCheck.Presets.ps1   Portlisten der Spiele
-│  └─ PortCheck.Themes.ps1    Farbwelten
+│  ├─ PortCheck.Themes.ps1    Farbwelten
 └─ tests/Run-Tests.ps1        100 Tests, ohne Fremdmodule
 ```
 
@@ -278,7 +318,7 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-102 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+136 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
 
@@ -371,7 +411,15 @@ listener cannot accept connections and everything reports as closed.
   router's fault (CGNAT, double NAT, mobile connections)
 - **NAT type** — multiple STUN servers queried over a single socket, which is the
   only way the comparison is meaningful; detects CGNAT (`100.64.0.0/10`)
-- **Network & UPnP** — adapters, gateway, DNS, SSDP discovery
+- **Security check** — probes 20 ports that would be a real risk if reachable
+  (SMB, RDP, databases, remote administration); every finding explains what an
+  attacker could actually do with it
+- **Connection quality** — latency, jitter and packet loss along the chain
+  PC → router → ISP → internet, so you can see *where* the problem starts
+- **Share card** — one click renders a result card and puts it straight on the
+  clipboard; your public IP is deliberately masked
+- **Network & UPnP** — adapters, gateway, DNS, and full port-mapping management:
+  list, add and remove router port forwards without touching the router menu
 - **8 themes** — switchable at runtime, choice is remembered
 
 ## Command line
@@ -389,7 +437,7 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-102 tests, no third-party modules, no network access — they run offline.
+136 tests, no third-party modules, no network access — they run offline.
 
 ## Why PowerShell instead of a compiled `.exe`?
 

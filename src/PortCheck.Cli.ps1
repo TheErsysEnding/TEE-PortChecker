@@ -37,7 +37,7 @@ param(
 Set-StrictMode -Version Latest
 
 $script:AppName     = 'TEE PortChecker'
-$script:AppVersion  = '1.0.0'
+$script:AppVersion  = '1.1.0'
 $script:DiscordUrl  = 'https://discord.gg/teebug'
 $script:LinktreeUrl = 'https://linktr.ee/theersysending'
 
