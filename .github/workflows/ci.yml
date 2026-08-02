@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Testsuite (Windows PowerShell 5.1)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Umgebung anzeigen
+        shell: powershell
+        run: |
+          $PSVersionTable | Format-List
+          [System.Environment]::OSVersion.Version
+
+      # Fangt Tippfehler und Syntaxprobleme ab, bevor die Tests laufen.
+      - name: Syntax aller Skripte pruefen
+        shell: powershell
+        run: |
+          $fehler = 0
+          Get-ChildItem -Path src, tests -Filter *.ps1 -Recurse | ForEach-Object {
+            $tokens = $null; $probleme = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$tokens, [ref]$probleme)
+            if ($probleme -and $probleme.Count -gt 0) {
+              Write-Host "FEHLER in $($_.Name):" -ForegroundColor Red
+              $probleme | ForEach-Object { Write-Host "  $($_.Message)" }
+              $fehler++
+            } else {
+              Write-Host "ok  $($_.Name)"
+            }
+          }
+          if ($fehler -gt 0) { exit 1 }
+
+      - name: Testsuite
+        shell: powershell
+        run: .\tests\Run-Tests.ps1
+
+      # Baut das komplette Fenster auf und schaltet jede Seite und jede
+      # Farbwelt durch - ohne es anzuzeigen, laeuft also auch ohne Desktop.
+      - name: Oberflaeche aufbauen (Selbsttest)
+        shell: powershell
+        run: .\src\PortCheck.Gui.ps1 -SelfTest
+
+  lint:
+    name: PSScriptAnalyzer
+    runs-on: windows-latest
+    continue-on-error: true   # Hinweise sollen den Build nicht rot faerben
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PSScriptAnalyzer installieren
+        shell: powershell
+        run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Analyse
+        shell: powershell
+        run: |
+          $ergebnis = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning `
+                        -ExcludeRule PSAvoidUsingWriteHost, PSUseShouldProcessForStateChangingFunctions
+          if ($ergebnis) {
+            $ergebnis | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message
+            if ($ergebnis | Where-Object Severity -eq 'Error') { exit 1 }
+          } else {
+            Write-Host 'Keine Beanstandungen.'
+          }

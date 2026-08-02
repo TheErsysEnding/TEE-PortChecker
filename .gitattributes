@@ -1,0 +1,22 @@
+# PowerShell und XAML sind Windows-Dateien -> CRLF
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.xaml  text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Dokumentation
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binärdateien nicht anfassen
+*.png   binary
+*.jpg   binary
+*.ico   binary
+
+# WICHTIG: Die .ps1- und .xaml-Dateien sind UTF-8 MIT BOM gespeichert.
+# Windows PowerShell 5.1 liest sie ohne BOM als ANSI und macht aus jedem
+# Umlaut zwei Zeichen Datenmüll. Wenn dein Editor das BOM entfernt, schlägt
+# der Test "Alle Quelldateien sind UTF-8 MIT BOM" fehl - das ist Absicht.

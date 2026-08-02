@@ -1,0 +1,23 @@
+# Ergebnisse, die beim Benutzen entstehen
+portcheck_*.csv
+portcheck_*.json
+portcheck_*.txt
+port-check-ergebnis_*.csv
+
+# Windows
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Editoren
+.vs/
+.vscode/
+*.suo
+*.user
+*~
+*.swp
+
+# Temporäres
+*.tmp
+*.bak
+*.log
