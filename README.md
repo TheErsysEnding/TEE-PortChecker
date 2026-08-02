@@ -175,15 +175,17 @@ dein Router, können Spiele Ports selbst freigeben und du sparst dir die Handarb
 
 Umschaltbar im laufenden Betrieb, die Auswahl wird gemerkt.
 
+**Crimson** ist die Voreinstellung — oben im ersten Bild zu sehen.
+
 | Midnight — Cyan auf Tiefschwarz | Toxic — Giftgrün, Terminal-Optik |
 |---|---|
-| ![Midnight](docs/images/01-uebersicht.png) | ![Toxic](docs/images/theme-toxic.png) |
-| **Crimson** — Rot-Orange, aggressiv | **Ultraviolet** — Violett und Pink |
-| ![Crimson](docs/images/theme-crimson.png) | ![Ultraviolet](docs/images/theme-ultraviolet.png) |
-| **Amber** — Bernstein, warmes Dunkel | **Arctic** — Eisblau, ruhig |
-| ![Amber](docs/images/theme-amber.png) | ![Arctic](docs/images/theme-arctic.png) |
-| **Carbon** — neutrales Windows-11-Dunkel | **Daylight** — helles Windows-11-Design |
-| ![Carbon](docs/images/theme-carbon.png) | ![Daylight](docs/images/theme-daylight.png) |
+| ![Midnight](docs/images/theme-midnight.png) | ![Toxic](docs/images/theme-toxic.png) |
+| **Ultraviolet** — Violett und Pink | **Amber** — Bernstein, warmes Dunkel |
+| ![Ultraviolet](docs/images/theme-ultraviolet.png) | ![Amber](docs/images/theme-amber.png) |
+| **Arctic** — Eisblau, ruhig | **Carbon** — neutrales Windows-11-Dunkel |
+| ![Arctic](docs/images/theme-arctic.png) | ![Carbon](docs/images/theme-carbon.png) |
+| **Daylight** — helles Windows-11-Design | |
+| ![Daylight](docs/images/theme-daylight.png) | |
 
 Eigene Farbwelt bauen: in [`src/PortCheck.Themes.ps1`](src/PortCheck.Themes.ps1)
 einen Block kopieren, Id vergeben, Hex-Werte ändern. Die Testsuite prüft

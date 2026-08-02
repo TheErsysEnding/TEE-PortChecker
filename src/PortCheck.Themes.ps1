@@ -72,7 +72,27 @@ function Get-PortCheckThemes {
     [CmdletBinding()]
     param()
 
+    # Die erste Farbwelt ist zugleich der Notnagel: findet Get-ThemeById eine
+    # gespeicherte Id nicht mehr, greift sie auf Themes[0] zurück. Deshalb steht
+    # hier die Voreinstellung aus Get-DefaultSettings ganz oben - beides muss
+    # zusammenpassen, und ein Test wacht darüber.
     @(
+        # ---------------------------------------------------------------------
+        [pscustomobject]@{
+            Id = 'crimson'; Name = 'Crimson'; Tagline = 'Rot-Orange, aggressiv'; IsDark = $true
+            Tokens = @{
+                WindowBg   = '#0C0609'; WindowBg2 = '#150A0E'; Surface = '#100709'; SurfaceAlt = '#1B0E13'
+                Card       = '#1C0F14'; CardHover = '#26151B'; Stroke  = '#3A1F27'; StrokeSoft = '#2B171E'
+                Fg         = '#FAEAEE'; FgDim     = '#C09AA4'; FgFaint = '#8A6670'
+                Accent     = '#FF3B5C'; Accent2   = '#FF8A3D'; AccentFg = '#1A0407'; AccentSoft = '#33FF3B5C'
+                Ok         = '#42D98A'; OkSoft    = '#2E42D98A'
+                Bad        = '#FF3B5C'; BadSoft   = '#2EFF3B5C'
+                Warn       = '#FFB020'; WarnSoft  = '#2EFFB020'
+                Scroll     = '#4A2530'; ScrollHover = '#663341'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
+                CloseHover = '#E81123'; Shadow    = '#000000'
+            }
+        }
         # ---------------------------------------------------------------------
         [pscustomobject]@{
             Id = 'midnight'; Name = 'Midnight'; Tagline = 'Cyan auf Tiefschwarz'; IsDark = $true
@@ -101,22 +121,6 @@ function Get-PortCheckThemes {
                 Bad        = '#FF4D5E'; BadSoft   = '#2EFF4D5E'
                 Warn       = '#FFD447'; WarnSoft  = '#2EFFD447'
                 Scroll     = '#245038'; ScrollHover = '#33704F'
-                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
-                CloseHover = '#E81123'; Shadow    = '#000000'
-            }
-        }
-        # ---------------------------------------------------------------------
-        [pscustomobject]@{
-            Id = 'crimson'; Name = 'Crimson'; Tagline = 'Rot-Orange, aggressiv'; IsDark = $true
-            Tokens = @{
-                WindowBg   = '#0C0609'; WindowBg2 = '#150A0E'; Surface = '#100709'; SurfaceAlt = '#1B0E13'
-                Card       = '#1C0F14'; CardHover = '#26151B'; Stroke  = '#3A1F27'; StrokeSoft = '#2B171E'
-                Fg         = '#FAEAEE'; FgDim     = '#C09AA4'; FgFaint = '#8A6670'
-                Accent     = '#FF3B5C'; Accent2   = '#FF8A3D'; AccentFg = '#1A0407'; AccentSoft = '#33FF3B5C'
-                Ok         = '#42D98A'; OkSoft    = '#2E42D98A'
-                Bad        = '#FF3B5C'; BadSoft   = '#2EFF3B5C'
-                Warn       = '#FFB020'; WarnSoft  = '#2EFFB020'
-                Scroll     = '#4A2530'; ScrollHover = '#663341'
                 Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }

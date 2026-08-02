@@ -116,7 +116,7 @@ $script:NoPersist = [bool]($SelfTest -or $DemoMode -or $CaptureTo -or $LiveTest)
 
 function Get-DefaultSettings {
     [pscustomobject]@{
-        Theme        = 'midnight'
+        Theme        = 'crimson'
         DelayMs      = 1200
         TimeoutSec   = 20
         UseListener  = $true

@@ -551,6 +551,22 @@ if ($script:GuiVerfuegbar) {
         if ($fehler.Count -eq 0) { return $true }
         return ($fehler -join '; ')
     }
+    Test-Case 'Voreingestellte Farbwelt existiert und steht an erster Stelle' {
+        # Get-ThemeById faellt auf Themes[0] zurueck, wenn eine gespeicherte Id
+        # unbekannt ist. Waere das eine andere als die Voreinstellung, saehe ein
+        # frischer Start anders aus als ein Start nach einem Fehlgriff.
+        $guiQuelle = [System.IO.File]::ReadAllText(
+            (Join-Path $script:SrcDir 'PortCheck.Gui.ps1'), [System.Text.Encoding]::UTF8)
+        $standard = [regex]::Match($guiQuelle, "Theme\s+=\s+'([a-z]+)'").Groups[1].Value
+        if (-not $standard) { return 'Voreinstellung nicht gefunden' }
+        if (-not (@($themes | ForEach-Object { $_.Id }) -contains $standard)) {
+            return "Voreinstellung '$standard' gibt es gar nicht"
+        }
+        if ($themes[0].Id -ne $standard) {
+            return "Voreinstellung ist '$standard', Notnagel waere aber '$($themes[0].Id)'"
+        }
+        return $true
+    }
     Test-Case 'Es gibt mindestens eine helle und eine dunkle Farbwelt' {
         @($themes | Where-Object { $_.IsDark }).Count -gt 0 -and
         @($themes | Where-Object { -not $_.IsDark }).Count -gt 0
