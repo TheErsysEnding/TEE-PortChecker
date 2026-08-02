@@ -149,6 +149,19 @@ Adresse benutzt.
 
 ![NAT-Typ](docs/images/04-nattyp.png)
 
+### Ports öffnen
+
+Der Test sagt dir, dass ein Port zu ist. Diese Seite sagt dir, was du dagegen
+tun kannst: Portweiterleitung Schritt für Schritt, mit den Menüpfaden der
+verbreitetsten Router — denn jeder Hersteller nennt es anders, und selbst
+zwischen zwei Firmware-Ständen desselben Modells wandert der Menüpunkt.
+
+Dazu ehrlich, wann es **nicht** am Router liegt: CGNAT, doppeltes NAT und
+Mobilfunk. In diesen Fällen hilft nur der Anbieter — oder ein VPN-Dienst mit
+Portweiterleitung.
+
+![Ports öffnen](docs/images/08-ports-oeffnen.png)
+
 ### Netzwerk & UPnP
 
 Adapter, Gateway, DNS — und eine SSDP-Suche nach UPnP-fähigen Routern. Antwortet
@@ -263,7 +276,7 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-100 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+102 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
 
@@ -351,6 +364,9 @@ listener cannot accept connections and everything reports as closed.
 - **83 game presets** — consoles, the full Call of Duty series, shooters,
   survival, servers. Console entries automatically inherit their platform's base
   ports, so port data lives in exactly one place
+- **Opening ports** — step-by-step port forwarding guide with the menu paths of
+  the most common routers, plus an honest section on when it is *not* the
+  router's fault (CGNAT, double NAT, mobile connections)
 - **NAT type** — multiple STUN servers queried over a single socket, which is the
   only way the comparison is meaningful; detects CGNAT (`100.64.0.0/10`)
 - **Network & UPnP** — adapters, gateway, DNS, SSDP discovery
@@ -371,7 +387,7 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-100 tests, no third-party modules, no network access — they run offline.
+102 tests, no third-party modules, no network access — they run offline.
 
 ## Why PowerShell instead of a compiled `.exe`?
 

@@ -590,8 +590,8 @@ if ($script:GuiVerfuegbar) {
         $null -ne $script:Fenster
     }
     Test-Case 'Alle Seiten und Navigationspunkte sind vorhanden' {
-        $namen = @('NavDashboard','NavPorts','NavPresets','NavNat','NavNetwork','NavSettings','NavAbout',
-                   'PageDashboard','PagePorts','PagePresets','PageNat','PageNetwork','PageSettings','PageAbout')
+        $namen = @('NavDashboard','NavPorts','NavPresets','NavNat','NavHowTo','NavNetwork','NavSettings','NavAbout',
+                   'PageDashboard','PagePorts','PagePresets','PageNat','PageHowTo','PageNetwork','PageSettings','PageAbout')
         $fehlt = @($namen | Where-Object { $null -eq $script:Fenster.FindName($_) })
         if ($fehlt.Count -eq 0) { return $true }
         return 'fehlt: ' + ($fehlt -join ', ')
@@ -604,14 +604,15 @@ if ($script:GuiVerfuegbar) {
         return "$($treffer.Count) feste Farbwerte gefunden"
     }
     Test-Case 'Jeder DynamicResource-Schlüssel wird auch gesetzt' {
+        # Gegen die Wirklichkeit prüfen statt gegen eine handgepflegte Liste:
+        # ein Theme anwenden und schauen, was danach tatsächlich im Fenster
+        # steht. So fällt ein neu erfundener Schlüssel sofort auf.
+        Set-PortCheckTheme -Window $script:Fenster -Theme (Get-PortCheckThemes)[0]
+        $gesetzt = @($script:Fenster.Resources.Keys | ForEach-Object { [string]$_ })
+
         $text = [System.IO.File]::ReadAllText($xamlPfad, [System.Text.Encoding]::UTF8)
         $benutzt = [regex]::Matches($text, 'DynamicResource\s+([A-Za-z0-9_]+)\s*\}') |
                    ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
-        $gesetzt = New-Object 'System.Collections.Generic.List[string]'
-        foreach ($t in (Get-PortCheckThemeTokenNames)) {
-            $gesetzt.Add($t + 'Color'); $gesetzt.Add($t + 'Brush')
-        }
-        $gesetzt.Add('AccentGradientBrush'); $gesetzt.Add('WindowBackgroundBrush'); $gesetzt.Add('CurrentThemeIsDark')
         $fehlt = @($benutzt | Where-Object { $gesetzt -notcontains $_ })
         if ($fehlt.Count -eq 0) { return $true }
         return 'nicht gesetzt: ' + ($fehlt -join ', ')
@@ -657,14 +658,12 @@ if ($script:GuiVerfuegbar) {
         return "$($treffer.Count) feste Farbwerte gefunden"
     }
     Test-Case 'Jeder DynamicResource-Schlüssel im Willkommensfenster wird gesetzt' {
+        Set-PortCheckTheme -Window $script:WelcomeFenster -Theme (Get-PortCheckThemes)[0]
+        $gesetzt = @($script:WelcomeFenster.Resources.Keys | ForEach-Object { [string]$_ })
+
         $text = [System.IO.File]::ReadAllText($welcomePfad, [System.Text.Encoding]::UTF8)
         $benutzt = [regex]::Matches($text, 'DynamicResource\s+([A-Za-z0-9_]+)\s*\}') |
                    ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
-        $gesetzt = New-Object 'System.Collections.Generic.List[string]'
-        foreach ($t in (Get-PortCheckThemeTokenNames)) {
-            $gesetzt.Add($t + 'Color'); $gesetzt.Add($t + 'Brush')
-        }
-        $gesetzt.Add('AccentGradientBrush'); $gesetzt.Add('WindowBackgroundBrush'); $gesetzt.Add('CurrentThemeIsDark')
         $fehlt = @($benutzt | Where-Object { $gesetzt -notcontains $_ })
         if ($fehlt.Count -eq 0) { return $true }
         return 'nicht gesetzt: ' + ($fehlt -join ', ')
@@ -701,8 +700,8 @@ if ($script:GuiVerfuegbar) {
         return $true
     }
     Test-Case 'Alle Verweis-Schaltflächen sind im XAML vorhanden' {
-        $namen = @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord',
-                   'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnShowWelcome')
+        $namen = @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord', 'BtnSideLinktree',
+                   'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnShowWelcome', 'BtnPureVpn')
         $fehlt = @($namen | Where-Object { $null -eq $script:Fenster.FindName($_) })
         if ($fehlt.Count -eq 0) { return $true }
         return 'fehlt: ' + ($fehlt -join ', ')
@@ -711,8 +710,8 @@ if ($script:GuiVerfuegbar) {
         # Sonst klickt man ins Leere: der Handler schlägt über den Elementnamen nach.
         $karte = [regex]::Match($guiText, '\$script:LinkMap\s*=\s*@\{(?<inhalt>[\s\S]*?)\n\}').Groups['inhalt'].Value
         $fehlt = @()
-        foreach ($n in @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord',
-                         'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo')) {
+        foreach ($n in @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord', 'BtnSideLinktree',
+                         'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnPureVpn')) {
             if ($karte -notlike "*'$n'*") { $fehlt += $n }
         }
         if ($fehlt.Count -eq 0) { return $true }
@@ -720,6 +719,21 @@ if ($script:GuiVerfuegbar) {
     }
     Test-Case 'Neue Einstellung WelcomeShown ist vorgesehen' {
         $guiText -match 'WelcomeShown'
+    }
+    Test-Case 'PureVPN-Verweis enthält die vollständige Empfehlungskennung' {
+        # Angezeigt wird nur "PureVPN.com" - dahinter MUSS aber der komplette
+        # Empfehlungslink stehen. Faellt die Kennung weg, verdient niemand mehr
+        # daran, und es wuerde nicht auffallen.
+        $url = [regex]::Match($guiText, "PureVpnUrl\s*=\s*'([^']+)'").Groups[1].Value
+        if (-not $url) { return 'PureVpnUrl nicht gefunden' }
+        if ($url -notlike 'https://www.purevpn.com/*') { return "unerwartete Adresse: $url" }
+        if ($url -notmatch 'referrer=[A-Za-z0-9+/=]{40,}') { return 'Empfehlungskennung fehlt oder ist gekürzt' }
+        return $true
+    }
+    Test-Case 'Der Werbe-Verweis ist als Werbung gekennzeichnet' {
+        # Pflicht nach UWG - und ohne Kennzeichnung waere der Hinweis unlauter.
+        $xamlText = [System.IO.File]::ReadAllText((Join-Path $script:SrcDir 'Gui.xaml'), [System.Text.Encoding]::UTF8)
+        ($xamlText -match 'WERBUNG') -and ($xamlText -match 'Offenlegung')
     }
 
     Test-Case 'Preset-Karten schreiben ihre Auswahl ins Objekt zurück' {

@@ -45,6 +45,9 @@ $script:PortCheckThemeTokens = @(
     'WarnSoft',
     'Scroll',        # Bildlaufleiste
     'ScrollHover',
+    'Gold',          # Gold-Verlauf für den hervorgehobenen Verweis
+    'Gold2',
+    'GoldFg',        # Text auf Gold
     'CloseHover',    # Schließen-Schaltfläche
     'Shadow'         # Schattenfarbe
 )
@@ -82,6 +85,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF5470'; BadSoft   = '#2EFF5470'
                 Warn       = '#FFB020'; WarnSoft  = '#2EFFB020'
                 Scroll     = '#2A3A4C'; ScrollHover = '#3D5065'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -97,6 +101,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF4D5E'; BadSoft   = '#2EFF4D5E'
                 Warn       = '#FFD447'; WarnSoft  = '#2EFFD447'
                 Scroll     = '#245038'; ScrollHover = '#33704F'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -112,6 +117,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF3B5C'; BadSoft   = '#2EFF3B5C'
                 Warn       = '#FFB020'; WarnSoft  = '#2EFFB020'
                 Scroll     = '#4A2530'; ScrollHover = '#663341'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -127,6 +133,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF5470'; BadSoft   = '#2EFF5470'
                 Warn       = '#FFC24B'; WarnSoft  = '#2EFFC24B'
                 Scroll     = '#382B55'; ScrollHover = '#4D3B75'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -142,6 +149,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF5C5C'; BadSoft   = '#2EFF5C5C'
                 Warn       = '#FFD447'; WarnSoft  = '#2EFFD447'
                 Scroll     = '#4A3A1E'; ScrollHover = '#66512B'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -157,6 +165,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF6183'; BadSoft   = '#2EFF6183'
                 Warn       = '#FFC24B'; WarnSoft  = '#2EFFC24B'
                 Scroll     = '#2B3E52'; ScrollHover = '#3D566F'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -172,6 +181,7 @@ function Get-PortCheckThemes {
                 Bad        = '#FF5C5C'; BadSoft   = '#2EFF5C5C'
                 Warn       = '#FFC83D'; WarnSoft  = '#2EFFC83D'
                 Scroll     = '#3B3B3B'; ScrollHover = '#525252'
+                Gold       = '#FFD770'; Gold2     = '#C98F2B'; GoldFg = '#241800'
                 CloseHover = '#E81123'; Shadow    = '#000000'
             }
         }
@@ -187,6 +197,7 @@ function Get-PortCheckThemes {
                 Bad        = '#C42B45'; BadSoft   = '#22C42B45'
                 Warn       = '#9A6300'; WarnSoft  = '#229A6300'
                 Scroll     = '#C3CBD6'; ScrollHover = '#A5B0BF'
+                Gold       = '#E0A62F'; Gold2     = '#A8761D'; GoldFg = '#FFFFFF'
                 CloseHover = '#E81123'; Shadow    = '#5A6B80'
             }
         }
@@ -273,6 +284,21 @@ function Set-PortCheckTheme {
         [System.Windows.Media.ColorConverter]::ConvertFromString($Theme.Tokens['Accent2']), 1)))
     $gradient.Freeze()
     $Window.Resources['AccentGradientBrush'] = [System.Windows.Media.Brush]$gradient
+
+    # Gold-Verlauf für den hervorgehobenen Verweis in der Seitenleiste.
+    # Drei Stufen (dunkel - hell - dunkel), damit die Fläche gewölbt wirkt und
+    # der darüberlaufende Glanz etwas hat, worauf er aufsetzen kann.
+    $gold = New-Object System.Windows.Media.LinearGradientBrush
+    $gold.StartPoint = New-Object System.Windows.Point(0, 0)
+    $gold.EndPoint   = New-Object System.Windows.Point(1, 1)
+    $gold.GradientStops.Add((New-Object System.Windows.Media.GradientStop(
+        [System.Windows.Media.ColorConverter]::ConvertFromString($Theme.Tokens['Gold2']), 0)))
+    $gold.GradientStops.Add((New-Object System.Windows.Media.GradientStop(
+        [System.Windows.Media.ColorConverter]::ConvertFromString($Theme.Tokens['Gold']), 0.5)))
+    $gold.GradientStops.Add((New-Object System.Windows.Media.GradientStop(
+        [System.Windows.Media.ColorConverter]::ConvertFromString($Theme.Tokens['Gold2']), 1)))
+    $gold.Freeze()
+    $Window.Resources['GoldGradientBrush'] = [System.Windows.Media.Brush]$gold
 
     # Sehr dezenter Verlauf für den Fensterhintergrund
     $bg = New-Object System.Windows.Media.LinearGradientBrush

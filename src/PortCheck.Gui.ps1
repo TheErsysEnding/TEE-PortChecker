@@ -30,7 +30,7 @@ param(
     [string]$Theme = '',
 
     # Startet direkt auf einer bestimmten Seite, z. B. -StartPage NavNat
-    [ValidateSet('', 'NavDashboard', 'NavPorts', 'NavPresets', 'NavNat', 'NavNetwork', 'NavSettings', 'NavAbout')]
+    [ValidateSet('', 'NavDashboard', 'NavPorts', 'NavPresets', 'NavNat', 'NavHowTo', 'NavNetwork', 'NavSettings', 'NavAbout')]
     [string]$StartPage = '',
 
     # ENTWICKLER-OPTION: baut das Fenster vollständig auf, prüft alles durch
@@ -77,6 +77,12 @@ $script:AppVersion = '1.0.0'
 $script:RepoUrl    = 'https://github.com/TheErsysEnding/TEE-PortChecker'
 $script:LinktreeUrl = 'https://linktr.ee/theersysending'
 $script:DiscordUrl  = 'https://discord.gg/teebug'
+
+# Empfehlungslink (Werbung). In der Oberfläche wird nur "PureVPN.com" angezeigt,
+# damit die lange Kennung niemanden erschlägt - geöffnet wird die vollständige
+# Adresse. Die Kennzeichnung als Werbung steht sichtbar daneben; das ist in
+# Deutschland Pflicht und schützt den Betreiber.
+$script:PureVpnUrl = 'https://www.purevpn.com/refer-a-friend-v2?referrer=MDErTXhqMGlVdjlaMGFhd01KSW5wanZQcG9FbzFoMGRWaWhOZDEra01ldHNzYlFZaUxUei9NbCtjZDNkcDBHRw=='
 $script:Root       = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:CorePath   = Join-Path $script:Root 'PortCheck.Core.ps1'
 $script:PresetPath = Join-Path $script:Root 'PortCheck.Presets.ps1'
@@ -221,7 +227,8 @@ foreach ($name in @(
     'ChkWarnLarge','TxtSettingsPath','BtnOpenSettingsFolder','BtnResetSettings',
     'TxtAboutVersion','BtnOpenRepo','BtnOpenSource','BtnShowWelcome',
     'BtnAboutLinktree','BtnAboutDiscord','BtnAboutRepo','TxtRepoShort',
-    'BtnSideDiscord','BtnLinktree','BtnDiscord',
+    'BtnSideDiscord','BtnSideLinktree','BtnLinktree','BtnDiscord',
+    'NavHowTo','PageHowTo','BtnPureVpn','BtnOpenRouter','BtnHowToTest',
     'StatusDot','TxtStatus','ProgStatus','TxtStatusRight')) {
     $ui[$name] = Get-Ui $name
 }
@@ -843,6 +850,7 @@ $script:Pages = @{
     'NavPorts'     = 'PagePorts'
     'NavPresets'   = 'PagePresets'
     'NavNat'       = 'PageNat'
+    'NavHowTo'     = 'PageHowTo'
     'NavNetwork'   = 'PageNetwork'
     'NavSettings'  = 'PageSettings'
     'NavAbout'     = 'PageAbout'
@@ -1223,6 +1231,27 @@ $ui.BtnQuickNat.Add_Click({
         (New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
 })
 $ui.BtnQuickPresets.Add_Click({ Show-Page 'NavPresets' })
+
+# ------------------------------------------------------------------------------
+# Region: Seite "Ports öffnen"
+# ------------------------------------------------------------------------------
+
+$ui.BtnHowToTest.Add_Click({ Show-Page 'NavPorts' })
+
+$ui.BtnOpenRouter.Add_Click({
+    # Öffnet die Weboberfläche des Routers - also die Adresse des
+    # Standard-Gateways. Die steht nach dem Start bereits fest.
+    $gateway = $ui.TxtNetGateway.Text
+    if (-not $gateway -or $gateway -eq '...' -or $gateway -eq 'unbekannt') {
+        Set-Status 'Die Router-Adresse ist noch nicht bekannt - kurz warten oder im Reiter Netzwerk aktualisieren.' 'warn'
+        return
+    }
+    if (Open-ExternalLink "http://$gateway") {
+        Set-Status "Router-Oberfläche wird geöffnet: http://$gateway" 'ok'
+    } else {
+        Set-Status 'Der Browser ließ sich nicht öffnen.' 'warn'
+    }
+})
 $ui.BtnQuickRefresh.Add_Click({
     if (Start-Work -Body $script:WorkerNetwork) { Set-Status 'Werte werden neu geladen...' 'busy' }
 })
@@ -1351,10 +1380,13 @@ $script:LinkMap = @{
     'BtnAboutDiscord'  = @{ Url = $script:DiscordUrl;  Text = 'Discord-Einladung wird geöffnet.' }
     'BtnSideDiscord'   = @{ Url = $script:DiscordUrl;  Text = 'Discord-Einladung wird geöffnet.' }
     'BtnAboutRepo'     = @{ Url = $script:RepoUrl;     Text = 'Projektseite wird geöffnet.' }
+    'BtnSideLinktree'  = @{ Url = $script:LinktreeUrl; Text = 'linktr.ee wird im Browser geöffnet.' }
+    'BtnPureVpn'       = @{ Url = $script:PureVpnUrl;  Text = 'PureVPN wird im Browser geöffnet (Empfehlungslink).' }
 }
 
 foreach ($linkName in @('BtnLinktree', 'BtnAboutLinktree', 'BtnDiscord',
-                        'BtnAboutDiscord', 'BtnSideDiscord', 'BtnAboutRepo')) {
+                        'BtnAboutDiscord', 'BtnSideDiscord', 'BtnSideLinktree',
+                        'BtnAboutRepo', 'BtnPureVpn')) {
     $ui[$linkName].Add_Click({
         param($sender, $eventArgs)
         $ziel = $script:LinkMap[$sender.Name]
@@ -1441,6 +1473,15 @@ function Show-WelcomeWindow {
                 [void][PortCheck.Dwm]::DwmSetWindowAttribute($handle, 33, [ref]$rund, 4)
             }
         } catch { }
+    })
+
+    # Merken, dass der Dialog offen ist - das Sicherheitsnetz am Hauptfenster
+    # braucht diese Information, um ihn wieder nach vorn holen zu können.
+    $script:WelcomeFenster = $fenster
+    $script:WelcomeOffen   = $true
+    $fenster.Add_Closed({
+        $script:WelcomeOffen   = $false
+        $script:WelcomeFenster = $null
     })
 
     # Entwicklerlauf: kurz zeichnen lassen, abbilden, schließen.
@@ -1564,14 +1605,49 @@ $script:Win.Add_Loaded({
     if ($script:Settings.LastPorts) { $ui.TxtPortSpec.Text = [string]$script:Settings.LastPorts }
     [void](Start-Work -Body $script:WorkerInit)
     Set-Status 'Ermittle Netzwerkdaten...' 'busy'
+})
 
-    # Beim allerersten Start einmal Danke sagen. Danach nie wieder ungefragt -
-    # wer es nochmal sehen will, findet den Knopf unter "Über und Hilfe".
-    # Das Fenster ist modal, der Hintergrund-Runspace läuft dahinter weiter.
-    if ($script:ZeigeWillkommen) {
+# Das Willkommensfenster darf ERST aufgehen, wenn das Hauptfenster wirklich auf
+# dem Bildschirm steht.
+#
+# Warum das wichtig ist: Loaded feuert, bevor das Fenster gezeichnet ist. Ein
+# modaler Dialog an dieser Stelle blockiert den Ablauf, das Hauptfenster wird
+# nie sichtbar - es hat dann zwar einen Eintrag in der Taskleiste, aber nichts
+# zum Anzeigen. Nimmt jetzt ein anderes Programm den Fokus, klickt man in der
+# Taskleiste auf ein unsichtbares Fenster, und das einzig sichtbare hat keinen
+# Eintrag. Die Anwendung ist damit praktisch verloren. Genau so ist es in
+# Version 1.0.0 passiert.
+#
+# ContentRendered feuert nach dem ersten Zeichnen. Der kurze Timer danach gibt
+# Windows noch Zeit, das Fenster wirklich einzublenden, bevor der modale Dialog
+# übernimmt.
+#
+# Bewusst ein DispatcherTimer und NICHT Dispatcher.BeginInvoke mit [action]{...}:
+# ein so als Delegat übergebener PowerShell-Scriptblock wurde hier gar nicht
+# ausgeführt, der Dialog erschien dann überhaupt nicht mehr. Der Timer ist im
+# Projekt mehrfach erprobt.
+$script:Win.Add_ContentRendered({
+    if (-not $script:ZeigeWillkommen) { return }
+    $script:ZeigeWillkommen = $false      # nur ein einziges Mal
+
+    $anlauf = New-Object System.Windows.Threading.DispatcherTimer
+    $anlauf.Interval = [TimeSpan]::FromMilliseconds(300)
+    $anlauf.Add_Tick({
+        param($sender, $eventArgs)
+        $sender.Stop()
         Show-WelcomeWindow
         $script:Settings.WelcomeShown = $true
         Export-AppSettings
+    })
+    $anlauf.Start()
+})
+
+# Sicherheitsnetz: Wird das Hauptfenster aktiviert (etwa über die Taskleiste),
+# waehrend der modale Dialog offen ist, holen wir den Dialog nach vorn. Ohne das
+# passiert beim Klick scheinbar gar nichts, weil das Hauptfenster blockiert ist.
+$script:Win.Add_Activated({
+    if ($script:WelcomeOffen -and $script:WelcomeFenster) {
+        try { [void]$script:WelcomeFenster.Activate() } catch { }
     }
 })
 
@@ -1603,6 +1679,7 @@ $script:LiveReport   = New-Object 'System.Collections.Generic.List[string]'
 # Bei Selbsttest und Bildaufnahme bleibt es aus, damit nichts blockiert.
 $script:WelcomeCapture  = $(if ($ShowWelcome -and $CaptureTo) { $CaptureTo } else { '' })
 $script:WelcomeFenster  = $null
+$script:WelcomeOffen    = $false
 $script:ZeigeWillkommen = [bool](
     ($ShowWelcome -or -not $script:Settings.WelcomeShown) -and
     -not $SelfTest -and -not $LiveTest -and
@@ -1665,7 +1742,7 @@ if ($SelfTest) {
     # meldet das Ergebnis als Text + Rückgabewert. Kein Fenster, kein Netz.
     $problems = New-Object 'System.Collections.Generic.List[string]'
 
-    foreach ($navName in @('NavDashboard','NavPorts','NavPresets','NavNat','NavNetwork','NavSettings','NavAbout')) {
+    foreach ($navName in @('NavDashboard','NavPorts','NavPresets','NavNat','NavHowTo','NavNetwork','NavSettings','NavAbout')) {
         try {
             Show-Page $navName
             if ($ui[$script:Pages[$navName]].Visibility -ne 'Visible') {
@@ -1689,7 +1766,7 @@ if ($SelfTest) {
     }
 
     if ($problems.Count -eq 0) {
-        Write-Output "SELFTEST OK - $($script:Themes.Count) Farbwelten, 7 Seiten, $($script:PresetViews.Count) Presets"
+        Write-Output "SELFTEST OK - $($script:Themes.Count) Farbwelten, $($script:Pages.Count) Seiten, $($script:PresetViews.Count) Presets"
         exit 0
     }
     foreach ($problem in $problems) { Write-Output "SELFTEST FEHLER: $problem" }

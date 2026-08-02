@@ -13,6 +13,13 @@
 
  Die Farben kommen wie überall per DynamicResource aus der Theme-Datei; das
  Fenster bekommt sie über Set-PortCheckTheme eingetragen.
+
+ ACHTUNG bei ShowInTaskbar: der Wert MUSS True bleiben.
+ Mit False hat dieses Fenster keinen eigenen Eintrag in der Taskleiste. Nimmt
+ dann ein anderes Programm den Fokus - etwa der Browser nach einem Klick auf
+ Discord -, ist es nur noch über Alt+Tab erreichbar. Da es modal ist, blockiert
+ es solange das Hauptfenster, und die Anwendung wirkt eingefroren. Genau das ist
+ in Version 1.0.0 passiert.
 ================================================================================
 -->
 <Window
@@ -24,7 +31,7 @@
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     ResizeMode="NoResize"
-    ShowInTaskbar="False"
+    ShowInTaskbar="True"
     Background="{DynamicResource WindowBackgroundBrush}"
     TextOptions.TextFormattingMode="Ideal"
     UseLayoutRounding="True"

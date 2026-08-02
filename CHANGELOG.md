@@ -32,7 +32,10 @@ sauber getrennter Messlogik und einer Testsuite.
   `-Csv`, `-NatOnly`, `-ListPresets`, `-NonInteractive`)
 - **Einstellungen** für Pausenlänge, Zeitlimit und Listener-Verhalten,
   gespeichert in `%APPDATA%\TEE-PortChecker\settings.json`
-- **Testsuite** mit 100 Tests ohne Fremdmodule, komplett offline lauffähig
+- **Seite „Ports öffnen"** mit Schritt-für-Schritt-Anleitung zur
+  Portweiterleitung, Menüpfaden der verbreitetsten Router und einer ehrlichen
+  Einordnung, wann es nicht am Router liegt (CGNAT, doppeltes NAT, Mobilfunk)
+- **Testsuite** mit 102 Tests ohne Fremdmodule, komplett offline lauffähig
 
 ### Gegenüber dem privaten Vorläufer behoben
 

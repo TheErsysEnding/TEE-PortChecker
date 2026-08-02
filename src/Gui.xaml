@@ -647,6 +647,89 @@
         </Style>
 
         <!-- ============================================================== -->
+        <!-- Goldener Verweis mit wanderndem Glanz                          -->
+        <!-- ============================================================== -->
+        <!-- Der Glanz ist bewusst weiß und nicht aus dem Theme: er stellt
+             eine Lichtspiegelung dar und sieht auf jedem Goldton richtig aus.
+             Das Gold selbst kommt aus den Theme-Tokens. -->
+        <Style x:Key="GoldLinkCard" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Schein" CornerRadius="8" Opacity="0"
+                                    Background="{DynamicResource GoldBrush}">
+                                <Border.Effect>
+                                    <BlurEffect Radius="16"/>
+                                </Border.Effect>
+                            </Border>
+
+                            <Border x:Name="Bd" CornerRadius="8" Padding="12,10"
+                                    ClipToBounds="True"
+                                    Background="{DynamicResource GoldGradientBrush}"
+                                    BorderBrush="{DynamicResource GoldBrush}" BorderThickness="1">
+                                <Grid>
+                                    <!-- Glanzstreifen, der von links nach rechts wandert -->
+                                    <Rectangle x:Name="Glanz" Width="46" HorizontalAlignment="Left"
+                                               IsHitTestVisible="False">
+                                        <Rectangle.Fill>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                                <GradientStop Color="#B0FFFFFF" Offset="0.5"/>
+                                                <GradientStop Color="#00FFFFFF" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Rectangle.Fill>
+                                        <Rectangle.RenderTransform>
+                                            <TranslateTransform x:Name="GlanzPos" X="-60"/>
+                                        </Rectangle.RenderTransform>
+                                    </Rectangle>
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE71B;" FontSize="15"
+                                                   Foreground="{DynamicResource GoldFgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Alle meine Links" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource GoldFgBrush}"/>
+                                            <TextBlock Text="linktr.ee/theersysending" FontSize="10" Margin="0,1,0,0"
+                                                       FontFamily="{StaticResource MonoFont}" Opacity="0.75"
+                                                       Foreground="{DynamicResource GoldFgBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <!-- Wandert durch, pausiert dann kurz -
+                                             sonst wirkt es unruhig. -->
+                                        <DoubleAnimationUsingKeyFrames
+                                            Storyboard.TargetName="GlanzPos"
+                                            Storyboard.TargetProperty="X">
+                                            <LinearDoubleKeyFrame Value="-60"  KeyTime="0:0:0"/>
+                                            <LinearDoubleKeyFrame Value="230"  KeyTime="0:0:1.1"/>
+                                            <LinearDoubleKeyFrame Value="230"  KeyTime="0:0:3.4"/>
+                                        </DoubleAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Schein" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================================================== -->
         <!-- Preset-Karte (anklickbar, mehrfach auswählbar)                -->
         <!-- ============================================================== -->
         <Style x:Key="PresetCard" TargetType="ToggleButton">
@@ -958,6 +1041,8 @@
                                          GroupName="Nav" Tag="&#xE7FC;" Content="Spiele-Presets"/>
                             <RadioButton x:Name="NavNat" Style="{StaticResource NavItem}"
                                          GroupName="Nav" Tag="&#xE774;" Content="NAT-Typ"/>
+                            <RadioButton x:Name="NavHowTo" Style="{StaticResource NavItem}"
+                                         GroupName="Nav" Tag="&#xE785;" Content="Ports öffnen"/>
 
                             <TextBlock Text="SYSTEM" Style="{StaticResource Label}" Margin="22,18,0,8"/>
                             <RadioButton x:Name="NavNetwork" Style="{StaticResource NavItem}"
@@ -971,6 +1056,10 @@
                         <!-- Fuß der Seitenleiste: eigene IP immer im Blick,
                              darüber der Verweis auf die Community. -->
                         <StackPanel Grid.Row="1">
+                            <Button x:Name="BtnSideLinktree" Style="{StaticResource GoldLinkCard}"
+                                    Margin="12,0,12,8"
+                                    ToolTip="Alle Links von TheErsysEnding - im Browser öffnen"/>
+
                             <Button x:Name="BtnSideDiscord" Cursor="Hand" Margin="12,0,12,8">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
@@ -1453,6 +1542,135 @@
                                                Text="STRIKT - streng oder CGNAT. Häufige Verbindungsabbrüche, lange Suche nach Mitspielern, kein Gastgeber."/>
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
                                                Text="Ehrlich dazugesagt: messbar ist das Mapping-Verhalten (RFC 5780). Das Filter-Verhalten - wer zurückschicken darf - lässt sich ohne Server mit zweiter IP-Adresse nicht bestimmen. Deshalb steht bei gutmütigem NAT hier MODERAT und nicht vorschnell OFFEN."/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ===================== PORTS ÖFFNEN ===================== -->
+                    <ScrollViewer x:Name="PageHowTo" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                  Padding="28,24,20,24">
+                        <StackPanel>
+                            <TextBlock Text="Ports öffnen" Style="{StaticResource H1}"/>
+                            <TextBlock Style="{StaticResource Body}" Margin="0,6,0,18" MaxWidth="820"
+                                       HorizontalAlignment="Left"
+                                       Text="Der Test sagt dir, ob ein Port zu ist. Diese Seite sagt dir, was du dagegen tun kannst. Der Weg führt fast immer über den Router - und wenn der nicht reicht, gibt es noch eine zweite Möglichkeit."/>
+
+                            <!-- Schritt für Schritt -->
+                            <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE713;" FontSize="15"
+                                                   Foreground="{DynamicResource AccentBrush}"/>
+                                        <TextBlock Text="Weg 1: Portweiterleitung im Router" Style="{StaticResource H2}"
+                                                   Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,8,0,14" TextWrapping="Wrap"
+                                               Text="Der Router entscheidet, welcher Rechner im Heimnetz eine Verbindung von außen bekommt. Ohne eine Weiterleitung weiß er es nicht und verwirft sie einfach."/>
+
+                                    <TextBlock Text="1. Lokale IP festhalten" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                               Text="Deine lokale IP steht im Reiter Netzwerk. Wichtig: sie muss gleich bleiben. Im Router heißt die Einstellung meist 'immer dieselbe IP zuweisen', 'DHCP-Reservierung' oder 'statische Zuordnung'. Ohne das zeigt die Weiterleitung nach dem nächsten Neustart womöglich auf ein anderes Gerät."/>
+
+                                    <TextBlock Text="2. Router-Oberfläche öffnen" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,4" TextWrapping="Wrap"
+                                               Text="Im Browser die Adresse des Standard-Gateways eingeben - die steht ebenfalls im Reiter Netzwerk, typischerweise 192.168.0.1 oder 192.168.178.1. Das Kennwort steht bei vielen Geräten auf einem Aufkleber an der Unterseite."/>
+                                    <Button x:Name="BtnOpenRouter" Style="{StaticResource GhostButton}"
+                                            Content="Router-Oberfläche jetzt öffnen" Margin="0,4,0,12"
+                                            HorizontalAlignment="Left"/>
+
+                                    <TextBlock Text="3. Die richtige Stelle finden" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,6" TextWrapping="Wrap"
+                                               Text="Und hier wird es unübersichtlich: jeder Hersteller nennt es anders, und selbst zwischen zwei Firmware-Ständen desselben Modells wandert der Menüpunkt. Eine allgemeingültige Anleitung gibt es schlicht nicht. Die verbreitetsten Bezeichnungen:"/>
+                                    <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
+                                            Padding="14,11" Margin="0,0,0,12"
+                                            BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Body}" FontSize="12"
+                                                       Text="FRITZ!Box  -  Internet › Freigaben › Portfreigaben › Gerät für Freigaben hinzufügen"/>
+                                            <TextBlock Style="{StaticResource Body}" FontSize="12" Margin="0,4,0,0"
+                                                       Text="Speedport  -  Internet › Portfreischaltung"/>
+                                            <TextBlock Style="{StaticResource Body}" FontSize="12" Margin="0,4,0,0"
+                                                       Text="TP-Link  -  Weiterleitung › Virtuelle Server  (neuere: Erweitert › NAT-Weiterleitung)"/>
+                                            <TextBlock Style="{StaticResource Body}" FontSize="12" Margin="0,4,0,0"
+                                                       Text="Vodafone Station  -  Erweiterte Einstellungen › Portweiterleitung"/>
+                                            <TextBlock Style="{StaticResource Body}" FontSize="12" Margin="0,4,0,0"
+                                                       Text="ASUS / Netgear  -  WAN › Virtual Server / Port Forwarding"/>
+                                            <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                                       Text="Steht deiner nicht dabei: im Handbuch oder bei der Suche nach dem Modellnamen plus 'Portweiterleitung' wirst du fündig. Der Ablauf ist überall derselbe - nur die Beschriftung wechselt."/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="4. Regel anlegen" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                               Text="Eingetragen werden: die lokale IP des Rechners, der Port (oder Bereich) und das Protokoll. Welche Ports dein Spiel braucht, steht im Reiter Spiele-Presets - dort ist auch vermerkt, welche davon UDP sind. TCP und UDP sind getrennte Regeln; im Zweifel beide anlegen."/>
+
+                                    <TextBlock Text="5. Windows-Firewall" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                               Text="Selbst bei perfekter Weiterleitung blockt Windows die Verbindung, wenn die Firewall-Abfrage weggeklickt wurde. Beim Prüfen mit diesem Werkzeug erscheint sie erneut - dann auf 'Zulassen' gehen."/>
+
+                                    <TextBlock Text="6. Nachmessen" Style="{StaticResource H2}" FontSize="13"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                               Text="Zurück in den Port-Test und denselben Port noch einmal prüfen. Steht dort jetzt OFFEN, hat es geklappt."/>
+                                    <Button x:Name="BtnHowToTest" Style="{StaticResource AccentButton}"
+                                            Content="Zum Port-Test" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Wenn der Router nicht reicht -->
+                            <Border Style="{StaticResource Card}" Margin="0,14,12,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="15"
+                                                   Foreground="{DynamicResource WarnBrush}"/>
+                                        <TextBlock Text="Wenn die Weiterleitung nichts bringt" Style="{StaticResource H2}"
+                                                   Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                               Text="Bleibt der Port trotz korrekter Regel zu, liegt es meistens nicht an dir. Die drei üblichen Ursachen:"/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                               Text="CGNAT oder DS-Lite - dein Anbieter teilt eine öffentliche IPv4 unter mehreren Kunden auf. Dann gibt es für dich keinen eigenen Port, den man weiterleiten könnte. Der NAT-Typ-Test erkennt das: die von außen gesehene Adresse liegt dann im Bereich 100.64.0.0/10."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Zwei Router hintereinander - etwa Modem des Anbieters plus eigener Router. Dann braucht es die Regel in beiden Geräten, oder das äußere muss in den Bridge-Modus."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Mobilfunk oder LTE/5G-Anschluss - dort ist Portweiterleitung praktisch nie vorgesehen."/>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                               Text="Bei CGNAT hilft nur zweierlei: beim Anbieter eine echte öffentliche IPv4 anfragen - manche geben sie kostenlos heraus, andere gar nicht - oder den Umweg über einen VPN-Dienst mit Portweiterleitung gehen. Dabei bekommst du einen Port auf der Adresse des Anbieters, der zu dir durchgereicht wird."/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Empfehlung -->
+                            <Border Style="{StaticResource Card}" Margin="0,14,12,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE72E;" FontSize="15"
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                            <TextBlock Text="VPN mit Portweiterleitung" Style="{StaticResource H2}"
+                                                       Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Background="{DynamicResource WarnSoftBrush}" CornerRadius="4"
+                                                Padding="7,2">
+                                            <TextBlock Text="WERBUNG" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource WarnBrush}"/>
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                               Text="Ein VPN-Anbieter, der Portweiterleitung anbietet, ist bei CGNAT der praktikabelste Ausweg: du bekommst einen erreichbaren Port, obwohl dein eigener Anschluss keinen hergibt. PureVPN hat diese Funktion im Angebot."/>
+                                    <Button x:Name="BtnPureVpn" Style="{StaticResource SocialCard}"
+                                            Tag="&#xE774;" Margin="0,14,0,0" HorizontalAlignment="Left">
+                                        <StackPanel>
+                                            <TextBlock Text="PureVPN mit Portweiterleitung ansehen"
+                                                       FontWeight="SemiBold" FontSize="13"
+                                                       Foreground="{DynamicResource FgBrush}"/>
+                                            <TextBlock Text="PureVPN.com" FontSize="11" Margin="0,2,0,0"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
+                                               Text="Offenlegung: Das ist ein Empfehlungslink von TheErsysEnding. Schließt du darüber ab, bekommt er eine Provision - für dich ändert sich am Preis nichts. Damit finanziert sich die Arbeit an diesem Werkzeug. Notwendig ist es nicht: TEE PortChecker funktioniert vollständig ohne VPN, und wenn deine Portweiterleitung im Router läuft, brauchst du das hier nicht."/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
