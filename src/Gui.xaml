@@ -1925,6 +1925,30 @@
                                 </StackPanel>
                             </Grid>
 
+                            <!-- Erscheint nur, wenn der Verkehr über einen Tunnel läuft.
+                                 Ohne diesen Hinweis wären alle Messungen missverständlich. -->
+                            <Border x:Name="VpnWarnCard" Visibility="Collapsed" Margin="0,18,12,0"
+                                    CornerRadius="10" Padding="16,13"
+                                    Background="{DynamicResource WarnSoftBrush}"
+                                    BorderBrush="{DynamicResource WarnBrush}" BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource Icon}" Text="&#xE7BA;"
+                                               FontSize="17" VerticalAlignment="Top" Margin="0,1,0,0"
+                                               Foreground="{DynamicResource WarnBrush}"/>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="VPN aktiv - das ist nicht dein Anschluss"
+                                                   Style="{StaticResource H2}" FontSize="14"
+                                                   Foreground="{DynamicResource WarnBrush}"/>
+                                        <TextBlock x:Name="TxtVpnWarn" Style="{StaticResource Body}"
+                                                   Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
                             <Border Style="{StaticResource Card}" Margin="0,18,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Anschluss" Style="{StaticResource H2}"/>

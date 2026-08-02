@@ -231,7 +231,7 @@ foreach ($name in @(
     'NatBadge','NatBadgeIcon','NatBadgeText','TxtNatTitle','TxtNatBehaviour','ItemsNatReasons',
     'BtnNatStart','BtnNatCopy','LstNatServers','TxtNatEmpty',
     'BtnUpnpScan','BtnNetRefresh','TxtNetHost','TxtNetGateway','TxtNetDns','TxtNetPublic',
-    'ItemsAdapters','TxtUpnpState','ItemsUpnp',
+    'ItemsAdapters','TxtUpnpState','ItemsUpnp','VpnWarnCard','TxtVpnWarn',
     'ItemsThemes','SldDelay','TxtDelayValue','SldTimeout','TxtTimeoutValue','ChkListener',
     'ChkWarnLarge','TxtSettingsPath','BtnOpenSettingsFolder','BtnResetSettings',
     'TxtAboutVersion','BtnOpenRepo','BtnOpenSource','BtnShowWelcome',
@@ -741,15 +741,40 @@ function Show-Network {
     $ui.TxtNetDns.Text     = if ($Overview.DnsServers.Count -gt 0) { $Overview.DnsServers -join ', ' } else { 'unbekannt' }
 
     $rows = foreach ($adapter in $Overview.Adapters) {
+        # Bei virtuellen Adaptern wird KEINE Geschwindigkeit angezeigt.
+        # Ein WireGuard-Tunnel meldet stur 100 Gbit/s - es gibt keine
+        # physische Leitung, deren Tempo man ablesen könnte. Diese Zahl als
+        # "deine Geschwindigkeit" hinzustellen wäre schlicht gelogen.
+        $tempo = if ($adapter.IsVirtual) {
+            'Tunnel - keine echte Leitung'
+        } elseif ($adapter.SpeedMbps -gt 0) {
+            "$($adapter.SpeedMbps) Mbit/s"
+        } else {
+            $adapter.Type
+        }
         [pscustomobject]@{
             Name        = $adapter.Name
             Description = $adapter.Description
             MacAddress  = $adapter.MacAddress
             IPv4        = $adapter.IPv4
-            SpeedText   = if ($adapter.SpeedMbps -gt 0) { "$($adapter.SpeedMbps) Mbit/s" } else { $adapter.Type }
+            SpeedText   = $tempo
         }
     }
     $ui.ItemsAdapters.ItemsSource = @($rows)
+
+    # VPN-Hinweis: ändert die Bedeutung jeder Messung in diesem Werkzeug.
+    if ($Overview.VpnActive) {
+        $ui.VpnWarnCard.Visibility = 'Visible'
+        $ui.TxtVpnWarn.Text =
+            "Dein Verkehr läuft über den VPN-Tunnel `"$($Overview.VpnName)`". Alle Messungen hier " +
+            'beziehen sich damit auf den Ausgang des VPN-Anbieters und NICHT auf deinen eigenen ' +
+            'Anschluss: die öffentliche IP gehört dem Anbieter, der Port-Test prüft dessen Server, ' +
+            'und der NAT-Typ beschreibt dessen Netz. Für eine Aussage über deinen Router musst du ' +
+            'das VPN vorher trennen.'
+        $ui.TxtPublicIpNote.Text = "VPN aktiv ($($Overview.VpnName)) - das ist nicht dein Anschluss"
+    } else {
+        $ui.VpnWarnCard.Visibility = 'Collapsed'
+    }
 }
 
 function Show-NatResult {

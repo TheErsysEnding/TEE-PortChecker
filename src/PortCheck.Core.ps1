@@ -121,6 +121,33 @@ function Test-PrivateIPv4 {
     return $false
 }
 
+function Test-VirtualAdapter {
+    <#
+    .SYNOPSIS
+        Erkennt Tunnel- und andere virtuelle Netzwerkkarten.
+    .DESCRIPTION
+        Wichtig für die Anzeige: virtuelle Adapter melden eine erfundene
+        Verbindungsgeschwindigkeit. Ein WireGuard-Tunnel gibt zum Beispiel
+        stur 100 Gbit/s an - es gibt eben keine physische Leitung, deren
+        Geschwindigkeit man ablesen könnte. Diese Zahl als "deine
+        Geschwindigkeit" anzuzeigen wäre schlicht falsch.
+
+        Erkannt wird über die Beschreibung, den Adaptertyp und als letzten
+        Anhaltspunkt über unrealistisch hohe Angaben.
+    #>
+    [CmdletBinding()]
+    param([string]$Description, [string]$Type, [long]$SpeedBps)
+
+    $muster = 'wireguard|wintun|openvpn|\bvpn\b|tap-|tap9|tunnel|virtual|hyper-v|vmware|virtualbox|tailscale|zerotier|nordlynx|proton|wan miniport|teredo|loopback'
+    if ($Description -and $Description -imatch $muster) { return $true }
+    if ($Type -and $Type -imatch 'tunnel|ppp') { return $true }
+
+    # Über 10 Gbit/s hat im Heimnetz praktisch niemand - solche Angaben
+    # stammen von virtuellen Adaptern.
+    if ($SpeedBps -ge 10000000000L) { return $true }
+    return $false
+}
+
 function Get-NetworkOverview {
     <#
     .SYNOPSIS
@@ -169,13 +196,18 @@ function Get-NetworkOverview {
                         Where-Object { $_ -notlike '169.254.*' })
             if ($nicIPs.Count -eq 0) { continue }
 
+            $typ = $nic.NetworkInterfaceType.ToString()
             $adapters += [pscustomobject]@{
                 Name        = $nic.Name
                 Description = $nic.Description
-                Type        = $nic.NetworkInterfaceType.ToString()
-                SpeedMbps   = if ($nic.Speed -gt 0) { [math]::Round($nic.Speed / 1MB, 0) } else { 0 }
+                Type        = $typ
+                # Netzwerkgeschwindigkeiten sind DEZIMAL definiert: 1 Mbit/s
+                # sind 1.000.000 bit/s, nicht 1.048.576. Mit /1MB kämen rund
+                # 5 % zu wenig heraus - aus echten 576 würden angezeigte 549.
+                SpeedMbps   = if ($nic.Speed -gt 0) { [math]::Round($nic.Speed / 1e6, 0) } else { 0 }
                 MacAddress  = ($nic.GetPhysicalAddress().ToString() -replace '(.{2})(?!$)', '$1:')
                 IPv4        = ($nicIPs -join ', ')
+                IsVirtual   = (Test-VirtualAdapter -Description $nic.Description -Type $typ -SpeedBps $nic.Speed)
             }
 
             if (-not $gateway) {
@@ -193,12 +225,32 @@ function Get-NetworkOverview {
         }
     } catch { }
 
+    # Läuft der Verkehr über einen VPN-Tunnel? Das ist für dieses Werkzeug
+    # entscheidend: dann misst der Port-Test den VPN-Ausgang und NICHT den
+    # eigenen Anschluss. Ohne diesen Hinweis wären alle Ergebnisse
+    # missverständlich.
+    $primaer   = Get-LocalPrimaryIP
+    $vpnAktiv  = $false
+    $vpnName   = ''
+    if ($primaer) {
+        foreach ($a in $adapters) {
+            if ($a.IsVirtual -and (($a.IPv4 -split ',\s*') -contains $primaer)) {
+                $vpnAktiv = $true
+                $vpnName  = $a.Name
+                break
+            }
+        }
+    }
+
     [pscustomobject]@{
-        Gateway   = $gateway
-        LocalIPs  = @($addresses | Select-Object -Unique)
-        DnsServers= @($dns | Select-Object -Unique)
-        Adapters  = @($adapters)
-        HostName  = [System.Net.Dns]::GetHostName()
+        Gateway    = $gateway
+        LocalIPs   = @($addresses | Select-Object -Unique)
+        DnsServers = @($dns | Select-Object -Unique)
+        Adapters   = @($adapters)
+        HostName   = [System.Net.Dns]::GetHostName()
+        PrimaryIP  = $primaer
+        VpnActive  = $vpnAktiv
+        VpnName    = $vpnName
     }
 }
 

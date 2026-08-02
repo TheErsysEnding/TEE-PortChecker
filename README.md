@@ -318,7 +318,7 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-136 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+144 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
 
@@ -437,7 +437,7 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-136 tests, no third-party modules, no network access — they run offline.
+144 tests, no third-party modules, no network access — they run offline.
 
 ## Why PowerShell instead of a compiled `.exe`?
 

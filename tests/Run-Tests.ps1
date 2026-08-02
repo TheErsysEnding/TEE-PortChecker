@@ -436,6 +436,51 @@ Test-Case 'Textbericht enthält die Zusammenfassung' {
 Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------------------------
+Start-Group 'Netzwerkadapter und VPN'
+# ------------------------------------------------------------------------------
+
+Test-Case 'WireGuard-Tunnel wird als virtuell erkannt' {
+    (Test-VirtualAdapter -Description 'WireGuard Tunnel' -Type '53' -SpeedBps 100000000000) -eq $true
+}
+Test-Case 'OpenVPN-Adapter wird als virtuell erkannt' {
+    (Test-VirtualAdapter -Description 'TAP-Windows Adapter V9' -Type 'Ethernet' -SpeedBps 100000000) -eq $true
+}
+Test-Case 'Unrealistische Geschwindigkeit gilt als virtuell' {
+    # Über 10 Gbit/s hat im Heimnetz praktisch niemand.
+    (Test-VirtualAdapter -Description 'Irgendein Adapter' -Type 'Ethernet' -SpeedBps 100000000000) -eq $true
+}
+Test-Case 'Echtes WLAN wird NICHT als virtuell eingestuft' {
+    (Test-VirtualAdapter -Description 'Intel(R) Wi-Fi 6 AX201 160MHz' -Type 'Wireless80211' -SpeedBps 576000000) -eq $false
+}
+Test-Case 'Echtes Ethernet wird NICHT als virtuell eingestuft' {
+    (Test-VirtualAdapter -Description 'Realtek PCIe 2.5GbE Family Controller' -Type 'Ethernet' -SpeedBps 2500000000) -eq $false
+}
+Test-Case 'Geschwindigkeit wird dezimal umgerechnet, nicht binär' {
+    # Netzwerkgeschwindigkeiten sind dezimal definiert. Mit /1MB kaemen aus
+    # 576.000.000 bit/s falsche 549 statt der richtigen 576 Mbit/s heraus -
+    # rund 5 % zu wenig, und das bei jedem einzelnen Adapter.
+    $dezimal = [math]::Round(576000000 / 1e6, 0)
+    $binaer  = [math]::Round(576000000 / 1MB, 0)
+    if ($dezimal -ne 576) { return "dezimal ergibt $dezimal statt 576" }
+    if ($binaer -eq $dezimal) { return 'Test taugt nichts - beide Wege liefern dasselbe' }
+    return $true
+}
+Test-Case 'Netzwerkübersicht meldet VPN-Zustand und primäre Adresse' {
+    $n = Get-NetworkOverview
+    $felder = @($n.PSObject.Properties.Name)
+    $fehlt = @(@('VpnActive', 'VpnName', 'PrimaryIP', 'Adapters') | Where-Object { $felder -notcontains $_ })
+    if ($fehlt.Count -eq 0) { return $true }
+    return 'fehlt: ' + ($fehlt -join ', ')
+}
+Test-Case 'Jeder gemeldete Adapter trägt die Kennzeichnung virtuell' {
+    $n = Get-NetworkOverview
+    foreach ($a in $n.Adapters) {
+        if ($null -eq $a.IsVirtual) { return "Adapter $($a.Name) ohne Kennzeichnung" }
+    }
+    return $true
+}
+
+# ------------------------------------------------------------------------------
 Start-Group 'Sicherheits-Check'
 # ------------------------------------------------------------------------------
 

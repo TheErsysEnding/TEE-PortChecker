@@ -47,12 +47,22 @@ Versionierung nach [SemVer](https://semver.org/lang/de/).
   über `HttpWebRequest`.
 - Eine unlesbare Antwort des Routers wurde als Ablehnung ausgegeben. Beides ist
   jetzt unterscheidbar.
+- **Adaptergeschwindigkeit wurde binär statt dezimal umgerechnet.** Aus echten
+  576 Mbit/s wurden angezeigte 549 — rund 5 % zu wenig, bei jedem Adapter.
+- **Virtuelle Adapter zeigten eine Fantasiezahl als Geschwindigkeit.** Ein
+  WireGuard-Tunnel meldet stur 100 Gbit/s, weil es keine physische Leitung gibt,
+  deren Tempo man ablesen könnte. Statt der Zahl steht dort jetzt „Tunnel — keine
+  echte Leitung".
+- **Ein aktives VPN blieb unerwähnt.** Läuft der Verkehr durch einen Tunnel,
+  messen Port-Test und NAT-Typ den Ausgang des VPN-Anbieters und nicht den
+  eigenen Anschluss — die Ergebnisse bedeuten dann etwas völlig anderes. Das
+  Werkzeug erkennt das jetzt und sagt es deutlich.
 
 ### Sonstiges
 
 - **Crimson ist die neue Voreinstellung** und steht an erster Stelle der
   Farbwelten, damit sie auch der Rückfallwert ist.
-- Testsuite von 100 auf 136 Tests. Neu darunter ein **nachgebauter
+- Testsuite von 100 auf 144 Tests. Neu darunter ein **nachgebauter
   UPnP-Router**, gegen den der komplette Weg geprüft wird: Beschreibung lesen,
   Steuer-Adresse finden, auflisten, anlegen, löschen — samt der Fehlernummern,
   die echte Geräte zurückgeben. So ist die Funktion abgesichert, ohne bei jedem
