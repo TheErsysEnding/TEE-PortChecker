@@ -1,6 +1,6 @@
 ﻿<#
 ================================================================================
- PortCheck - Themes
+ TEE PortChecker - Themes
 ================================================================================
  Jedes Theme ist ein reiner Satz Farbwerte ("Tokens"). Die Oberfläche
  referenziert diese Werte ausschließlich per DynamicResource, deshalb genügt

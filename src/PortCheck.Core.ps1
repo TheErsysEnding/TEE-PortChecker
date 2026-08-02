@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 ================================================================================
- PortCheck Core - Engine ohne jede Oberfläche
+ TEE PortChecker - Engine ohne jede Oberfläche
 ================================================================================
  Dieses Modul enthält die gesamte Logik: öffentliche IP ermitteln, TCP-Ports
  von außen prüfen, NAT-Typ per STUN bestimmen, UPnP/SSDP-Router finden.
@@ -11,7 +11,7 @@
  exakt denselben Code benutzen - was ihr seht ist was läuft.
 
  Lizenz: MIT (siehe LICENSE)
- Projekt: https://github.com/TheErsysEnding/PortCheck
+ Projekt: https://github.com/TheErsysEnding/TEE-PortChecker
 ================================================================================
 #>
 
@@ -44,7 +44,7 @@ try {
 } catch { }
 
 # Manche Dienste blocken den PowerShell-Standard-UserAgent.
-$script:PcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PortCheck/2.0 (+https://github.com/TheErsysEnding/PortCheck)'
+$script:PcUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TEE-PortChecker/1.0 (+https://github.com/TheErsysEnding/TEE-PortChecker)'
 
 # ------------------------------------------------------------------------------
 # Region: Adressen & Netzwerk-Basisinfos
@@ -695,7 +695,7 @@ function Export-PortCheckResult {
         'csv'  { $plain | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8 }
         'json' {
             [pscustomobject]@{
-                Tool      = 'PortCheck'
+                Tool      = 'TEE PortChecker'
                 Generated = (Get-Date).ToString('o')
                 PublicIP  = $PublicIP
                 Results   = $plain
@@ -705,7 +705,7 @@ function Export-PortCheckResult {
             $open   = @($plain | Where-Object { $_.Status -eq 'Open' })
             $closed = @($plain | Where-Object { $_.Status -eq 'Closed' })
             $lines  = New-Object 'System.Collections.Generic.List[string]'
-            $lines.Add('PortCheck - Ergebnisbericht')
+            $lines.Add('TEE PortChecker - Ergebnisbericht')
             $lines.Add('Erstellt: ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))
             $lines.Add('Öffentliche IP: ' + $PublicIP)
             $lines.Add('')

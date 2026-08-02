@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 ================================================================================
- PortCheck - Testsuite
+ TEE PortChecker - Testsuite
 ================================================================================
  Eigener kleiner Testläufer, bewusst ohne Pester oder sonstige Fremdmodule:
  wer das Projekt klont, soll die Tests sofort ausführen können, ohne vorher
@@ -88,7 +88,7 @@ function Assert-Equal {
 
 Write-Host ''
 Write-Host '  ====================================================================' -ForegroundColor DarkCyan
-Write-Host '   PortCheck - Testsuite' -ForegroundColor Cyan
+Write-Host '   TEE PortChecker - Testsuite' -ForegroundColor Cyan
 Write-Host '  ====================================================================' -ForegroundColor DarkCyan
 
 . (Join-Path $script:SrcDir 'PortCheck.Core.ps1')
@@ -424,7 +424,7 @@ Test-Case 'JSON wird geschrieben und ist gültig' {
     $pfad = Join-Path $tempDir 'test.json'
     Export-PortCheckResult -Results $beispiel -Path $pfad -Format 'json' -PublicIP '203.0.113.47' | Out-Null
     $daten = Get-Content $pfad -Raw -Encoding UTF8 | ConvertFrom-Json
-    $daten.Tool -eq 'PortCheck' -and @($daten.Results).Count -eq 2 -and $daten.PublicIP -eq '203.0.113.47'
+    $daten.Tool -eq 'TEE PortChecker' -and @($daten.Results).Count -eq 2 -and $daten.PublicIP -eq '203.0.113.47'
 }
 Test-Case 'Textbericht enthält die Zusammenfassung' {
     $pfad = Join-Path $tempDir 'test.txt'
@@ -622,6 +622,106 @@ if ($script:GuiVerfuegbar) {
         }
         return $true
     }
+    # --------------------------------------------------------------------------
+    Start-Group 'Willkommensfenster'
+    # --------------------------------------------------------------------------
+
+    $welcomePfad = Join-Path $script:SrcDir 'Welcome.xaml'
+    $script:WelcomeFenster = $null
+
+    Test-Case 'Welcome.xaml ist vorhanden' { Test-Path $welcomePfad }
+    Test-Case 'Welcome.xaml lässt sich zu einem Fenster aufbauen' {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.Load($welcomePfad)
+        $script:WelcomeFenster = [System.Windows.Markup.XamlReader]::Load(
+            (New-Object System.Xml.XmlNodeReader -ArgumentList $doc))
+        $null -ne $script:WelcomeFenster
+    }
+    Test-Case 'Alle Bedienelemente des Willkommensfensters sind vorhanden' {
+        $namen = @('WelcomeTitleBar', 'BtnWelcomeClose', 'BtnWelcomeStart',
+                   'BtnWelcomeDiscord', 'BtnWelcomeLinktree', 'TxtWelcomeVersion')
+        $fehlt = @($namen | Where-Object { $null -eq $script:WelcomeFenster.FindName($_) })
+        if ($fehlt.Count -eq 0) { return $true }
+        return 'fehlt: ' + ($fehlt -join ', ')
+    }
+    Test-Case 'Willkommensfenster nimmt jede Farbwelt an' {
+        foreach ($t in (Get-PortCheckThemes)) {
+            Set-PortCheckTheme -Window $script:WelcomeFenster -Theme $t
+        }
+        return $true
+    }
+    Test-Case 'Keine fest verdrahtete Farbe im Willkommensfenster' {
+        $text = [System.IO.File]::ReadAllText($welcomePfad, [System.Text.Encoding]::UTF8)
+        $treffer = [regex]::Matches($text, '(Background|Foreground|Fill|BorderBrush|Stroke)="#')
+        if ($treffer.Count -eq 0) { return $true }
+        return "$($treffer.Count) feste Farbwerte gefunden"
+    }
+    Test-Case 'Jeder DynamicResource-Schlüssel im Willkommensfenster wird gesetzt' {
+        $text = [System.IO.File]::ReadAllText($welcomePfad, [System.Text.Encoding]::UTF8)
+        $benutzt = [regex]::Matches($text, 'DynamicResource\s+([A-Za-z0-9_]+)\s*\}') |
+                   ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+        $gesetzt = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($t in (Get-PortCheckThemeTokenNames)) {
+            $gesetzt.Add($t + 'Color'); $gesetzt.Add($t + 'Brush')
+        }
+        $gesetzt.Add('AccentGradientBrush'); $gesetzt.Add('WindowBackgroundBrush'); $gesetzt.Add('CurrentThemeIsDark')
+        $fehlt = @($benutzt | Where-Object { $gesetzt -notcontains $_ })
+        if ($fehlt.Count -eq 0) { return $true }
+        return 'nicht gesetzt: ' + ($fehlt -join ', ')
+    }
+
+    # --------------------------------------------------------------------------
+    Start-Group 'Name und Verweise'
+    # --------------------------------------------------------------------------
+
+    $guiText = [System.IO.File]::ReadAllText((Join-Path $script:SrcDir 'PortCheck.Gui.ps1'), [System.Text.Encoding]::UTF8)
+    $cliText = [System.IO.File]::ReadAllText((Join-Path $script:SrcDir 'PortCheck.Cli.ps1'), [System.Text.Encoding]::UTF8)
+
+    Test-Case 'Oberfläche und Konsole nennen dieselbe Version' {
+        $a = [regex]::Match($guiText, "AppVersion\s*=\s*'([^']+)'").Groups[1].Value
+        $b = [regex]::Match($cliText, "AppVersion\s*=\s*'([^']+)'").Groups[1].Value
+        if ($a -and $a -eq $b) { return $true }
+        return "GUI=$a CLI=$b"
+    }
+    Test-Case 'Oberfläche und Konsole nennen denselben Namen' {
+        $a = [regex]::Match($guiText, "AppName\s*=\s*'([^']+)'").Groups[1].Value
+        $b = [regex]::Match($cliText, "AppName\s*=\s*'([^']+)'").Groups[1].Value
+        if ($a -and $a -eq $b) { return $true }
+        return "GUI=$a CLI=$b"
+    }
+    Test-Case 'Discord- und Linktree-Adresse sind überall gleich' {
+        $adressen = @{}
+        foreach ($paar in @(@('DiscordUrl', 'discord.gg/teebug'), @('LinktreeUrl', 'linktr.ee/theersysending'))) {
+            foreach ($quelle in @(@('GUI', $guiText), @('CLI', $cliText))) {
+                $wert = [regex]::Match($quelle[1], "$($paar[0])\s*=\s*'([^']+)'").Groups[1].Value
+                if ($wert -notlike "*$($paar[1])") { return "$($quelle[0])/$($paar[0]) = '$wert'" }
+                $adressen["$($quelle[0])$($paar[0])"] = $wert
+            }
+        }
+        return $true
+    }
+    Test-Case 'Alle Verweis-Schaltflächen sind im XAML vorhanden' {
+        $namen = @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord',
+                   'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo', 'BtnShowWelcome')
+        $fehlt = @($namen | Where-Object { $null -eq $script:Fenster.FindName($_) })
+        if ($fehlt.Count -eq 0) { return $true }
+        return 'fehlt: ' + ($fehlt -join ', ')
+    }
+    Test-Case 'Jede Verweis-Schaltfläche hat einen Eintrag in der Zuordnung' {
+        # Sonst klickt man ins Leere: der Handler schlägt über den Elementnamen nach.
+        $karte = [regex]::Match($guiText, '\$script:LinkMap\s*=\s*@\{(?<inhalt>[\s\S]*?)\n\}').Groups['inhalt'].Value
+        $fehlt = @()
+        foreach ($n in @('BtnLinktree', 'BtnDiscord', 'BtnSideDiscord',
+                         'BtnAboutLinktree', 'BtnAboutDiscord', 'BtnAboutRepo')) {
+            if ($karte -notlike "*'$n'*") { $fehlt += $n }
+        }
+        if ($fehlt.Count -eq 0) { return $true }
+        return 'ohne Zuordnung: ' + ($fehlt -join ', ')
+    }
+    Test-Case 'Neue Einstellung WelcomeShown ist vorgesehen' {
+        $guiText -match 'WelcomeShown'
+    }
+
     Test-Case 'Preset-Karten schreiben ihre Auswahl ins Objekt zurück' {
         # Die Auswahl der Presets hängt daran, dass eine TwoWay-Bindung auf
         # eine Eigenschaft eines PowerShell-Objekts wirklich zurückschreibt.

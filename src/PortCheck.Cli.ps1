@@ -1,10 +1,14 @@
 ﻿#Requires -Version 5.1
 <#
 ================================================================================
- PortCheck - Konsolenfassung
+ TEE PortChecker - Konsolenfassung
 ================================================================================
  Dieselbe Engine wie die grafische Oberfläche, nur ohne Fenster. Gedacht für
  Server ohne Desktop, für Fernwartung über SSH und für Automatisierung.
+
+ Von TheErsysEnding
+   Discord:  https://discord.gg/teebug
+   Links:    https://linktr.ee/theersysending
 
  Beispiele:
    .\PortCheck.Cli.ps1                          Menü
@@ -32,8 +36,13 @@ param(
 
 Set-StrictMode -Version Latest
 
+$script:AppName     = 'TEE PortChecker'
+$script:AppVersion  = '1.0.0'
+$script:DiscordUrl  = 'https://discord.gg/teebug'
+$script:LinktreeUrl = 'https://linktr.ee/theersysending'
+
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
-try { $Host.UI.RawUI.WindowTitle = 'PortCheck' } catch { }
+try { $Host.UI.RawUI.WindowTitle = "$script:AppName $script:AppVersion" } catch { }
 
 $script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $script:Root 'PortCheck.Core.ps1')
@@ -122,7 +131,7 @@ function Invoke-CliPortCheck {
     foreach ($port in $PortList) {
         $index++
         if ($PortList.Count -ge 10) {
-            Write-Progress -Activity 'PortCheck' -Status "Port $port ($index von $($PortList.Count))" `
+            Write-Progress -Activity 'TEE PortChecker' -Status "Port $port ($index von $($PortList.Count))" `
                            -PercentComplete (100 * $index / $PortList.Count)
         }
 
@@ -145,7 +154,7 @@ function Invoke-CliPortCheck {
         }
         Start-Sleep -Milliseconds $DelayMs
     }
-    Write-Progress -Activity 'PortCheck' -Completed
+    Write-Progress -Activity 'TEE PortChecker' -Completed
 
     $alle    = $ergebnisse.ToArray()
     $offen   = @($alle | Where-Object { $_.Status -eq 'Open' })
@@ -317,7 +326,9 @@ function Show-CliNetwork {
 function Show-Menu {
     Clear-Host
     Write-Rule
-    Write-Host '        PortCheck - Erreichbarkeit aus dem Internet prüfen' -ForegroundColor Cyan
+    Write-Host '   TEE' -NoNewline -ForegroundColor Cyan
+    Write-Host " PortChecker $script:AppVersion" -NoNewline -ForegroundColor White
+    Write-Host '  -  Erreichbarkeit aus dem Internet prüfen' -ForegroundColor Gray
     Write-Rule
     Write-Host ''
     Write-Host "   Deine öffentliche IP: $script:PublicIP" -ForegroundColor White
@@ -335,14 +346,33 @@ function Show-Menu {
     Write-Host '   [6] Grafische Oberfläche starten'
     Write-Host '   [0] Beenden'
     Write-Host ''
+    Write-Host '   ------------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '   Kostenlos und quelloffen. Danke, dass du mein Tool benutzt!' -ForegroundColor DarkGray
+    Write-Host '   Discord: ' -NoNewline -ForegroundColor DarkGray
+    Write-Host 'discord.gg/teebug' -NoNewline -ForegroundColor Cyan
+    Write-Host '   Links: ' -NoNewline -ForegroundColor DarkGray
+    Write-Host 'linktr.ee/theersysending' -ForegroundColor Cyan
+    Write-Host ''
 }
 
 # ------------------------------------------------------------------------------
 # Region: Start
 # ------------------------------------------------------------------------------
 
+function Show-CliFooter {
+    Write-Host ''
+    Write-Host '  ------------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host "  $script:AppName $script:AppVersion - kostenlos und quelloffen." -ForegroundColor DarkGray
+    Write-Host '  Discord ' -NoNewline -ForegroundColor DarkGray
+    Write-Host 'discord.gg/teebug' -NoNewline -ForegroundColor Cyan
+    Write-Host '  |  Links ' -NoNewline -ForegroundColor DarkGray
+    Write-Host 'linktr.ee/theersysending' -ForegroundColor Cyan
+    Write-Host ''
+}
+
 if ($ListPresets) {
     Show-CliPresetList
+    Show-CliFooter
     exit 0
 }
 
@@ -353,8 +383,8 @@ if (-not $script:PublicIP) {
     exit 1
 }
 
-if ($NatOnly)  { Show-CliNat; exit 0 }
-if ($Preset)   { Invoke-CliPreset -Id $Preset; exit 0 }
+if ($NatOnly)  { Show-CliNat; Show-CliFooter; exit 0 }
+if ($Preset)   { Invoke-CliPreset -Id $Preset; Show-CliFooter; exit 0 }
 if ($Ports.Trim() -ne '') {
     $zerlegt = ConvertFrom-PortSpec -Spec $Ports
     if ($zerlegt.Invalid.Count -gt 0) {
@@ -362,6 +392,7 @@ if ($Ports.Trim() -ne '') {
     }
     Write-Host "  Öffentliche IP: $script:PublicIP"
     Invoke-CliPortCheck -PortList $zerlegt.Ports -CsvPath $Csv
+    Show-CliFooter
     exit 0
 }
 

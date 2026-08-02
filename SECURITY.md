@@ -1,8 +1,8 @@
 # Sicherheit und Datenschutz
 
-## Was PortCheck tut — und was nicht
+## Was TEE PortChecker tut — und was nicht
 
-PortCheck öffnet Netzwerkverbindungen. Deshalb steht hier vollständig, was dabei
+TEE PortChecker öffnet Netzwerkverbindungen. Deshalb steht hier vollständig, was dabei
 passiert. Nachprüfen lässt sich alles im Quelltext; es gibt keine kompilierte
 Datei, der du vertrauen musst.
 
@@ -22,7 +22,7 @@ unabhängig davon.
 
 ### Was lokal gespeichert wird
 
-Ausschließlich `%APPDATA%\PortCheck\settings.json` mit Farbwelt, Pausenlänge,
+Ausschließlich `%APPDATA%\TEE-PortChecker\settings.json` mit Farbwelt, Pausenlänge,
 Zeitlimit und der zuletzt eingegebenen Portliste.
 
 **Nicht gespeichert werden:** Messergebnisse, IP-Adressen, Verlauf, Kennungen
@@ -33,7 +33,7 @@ keine Auto-Updates.
 
 ### Lokale Listener
 
-Beim Prüfen öffnet PortCheck kurzzeitig einen TCP-Listener auf dem jeweiligen
+Beim Prüfen öffnet TEE PortChecker kurzzeitig einen TCP-Listener auf dem jeweiligen
 Port und schließt ihn sofort wieder. Der Listener nimmt Verbindungen an, aber
 liest oder sendet **keine Daten**. Ohne ihn würde selbst eine korrekt
 eingerichtete Portweiterleitung „geschlossen" melden.
@@ -45,13 +45,13 @@ weniger aussagekräftig.
 
 ### Rechte
 
-PortCheck läuft ohne Adminrechte, ändert keine Systemeinstellungen, schreibt
+TEE PortChecker läuft ohne Adminrechte, ändert keine Systemeinstellungen, schreibt
 nichts in die Registry und installiert nichts.
 
 ## Lücke melden
 
 Wenn du ein Sicherheitsproblem findest, melde es bitte über eine
-[GitHub Security Advisory](https://github.com/TheErsysEnding/PortCheck/security/advisories/new)
+[GitHub Security Advisory](https://github.com/TheErsysEnding/TEE-PortChecker/security/advisories/new)
 oder als privates Issue — nicht als öffentlichen Bugreport, solange es
 ungepatcht ist.
 

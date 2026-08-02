@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 ================================================================================
- PortCheck - Preset-Datenbank
+ TEE PortChecker - Preset-Datenbank
 ================================================================================
  Bekannte Portlisten von Spielen, Konsolen und Diensten.
 

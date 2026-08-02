@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 ================================================================================
- PortCheck - Grafische Oberfläche
+ TEE PortChecker - Grafische Oberfläche
 ================================================================================
  Einstiegspunkt der Anwendung.
 
@@ -21,7 +21,7 @@
    und der Abbrechen-Knopf reagiert sofort.
 
  Lizenz: MIT (siehe LICENSE)
- Projekt: https://github.com/TheErsysEnding/PortCheck
+ Projekt: https://github.com/TheErsysEnding/TEE-PortChecker
 ================================================================================
 #>
 
@@ -52,6 +52,9 @@ param(
     # automatisch prüfen, nicht nur mit Beispieldaten.
     [string]$LiveTest = '',
 
+    # Zeigt das Willkommensfenster erneut, auch wenn es schon zu sehen war.
+    [switch]$ShowWelcome,
+
     # ENTWICKLER-OPTION: füllt die Oberfläche mit Beispieldaten und geht
     # NICHT ins Netz. Dient allein den Bildern in der README - damit dort
     # keine echte IP-Adresse einer Privatperson landet. Die verwendete Adresse
@@ -69,19 +72,24 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml
 
-$script:AppVersion = '2.0.0'
-$script:RepoUrl    = 'https://github.com/TheErsysEnding/PortCheck'
+$script:AppName    = 'TEE PortChecker'
+$script:AppVersion = '1.0.0'
+$script:RepoUrl    = 'https://github.com/TheErsysEnding/TEE-PortChecker'
+$script:LinktreeUrl = 'https://linktr.ee/theersysending'
+$script:DiscordUrl  = 'https://discord.gg/teebug'
 $script:Root       = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:CorePath   = Join-Path $script:Root 'PortCheck.Core.ps1'
 $script:PresetPath = Join-Path $script:Root 'PortCheck.Presets.ps1'
 $script:ThemePath  = Join-Path $script:Root 'PortCheck.Themes.ps1'
 $script:XamlPath   = Join-Path $script:Root 'Gui.xaml'
+$script:WelcomePath = Join-Path $script:Root 'Welcome.xaml'
 
-foreach ($required in @($script:CorePath, $script:PresetPath, $script:ThemePath, $script:XamlPath)) {
+foreach ($required in @($script:CorePath, $script:PresetPath, $script:ThemePath,
+                        $script:XamlPath, $script:WelcomePath)) {
     if (-not (Test-Path $required)) {
         [System.Windows.MessageBox]::Show(
             "Eine Programmdatei fehlt:`n$required`n`nBitte den kompletten Ordner entpacken bzw. klonen.",
-            'PortCheck', 'OK', 'Error') | Out-Null
+            'TEE PortChecker', 'OK', 'Error') | Out-Null
         exit 1
     }
 }
@@ -94,7 +102,7 @@ foreach ($required in @($script:CorePath, $script:PresetPath, $script:ThemePath,
 # Region: Einstellungen
 # ------------------------------------------------------------------------------
 
-$script:SettingsDir  = Join-Path $env:APPDATA 'PortCheck'
+$script:SettingsDir  = Join-Path $env:APPDATA 'TEE-PortChecker'
 $script:SettingsFile = Join-Path $script:SettingsDir 'settings.json'
 
 # Bei Entwickler-Optionen wird nichts dauerhaft gespeichert.
@@ -102,12 +110,33 @@ $script:NoPersist = [bool]($SelfTest -or $DemoMode -or $CaptureTo -or $LiveTest)
 
 function Get-DefaultSettings {
     [pscustomobject]@{
-        Theme       = 'midnight'
-        DelayMs     = 1200
-        TimeoutSec  = 20
-        UseListener = $true
-        WarnLarge   = $true
-        LastPorts   = ''
+        Theme        = 'midnight'
+        DelayMs      = 1200
+        TimeoutSec   = 20
+        UseListener  = $true
+        WarnLarge    = $true
+        LastPorts    = ''
+        # Merkt sich, ob das Willkommensfenster schon zu sehen war. Es soll
+        # genau einmal erscheinen und danach nie wieder ungefragt.
+        WelcomeShown = $false
+    }
+}
+
+function Open-ExternalLink {
+    <#
+    .SYNOPSIS
+        Öffnet eine Adresse im Standardbrowser.
+    .DESCRIPTION
+        Nur für die im Programm fest hinterlegten Adressen gedacht. Es wird
+        nichts nachgeladen und nichts übermittelt - der Browser bekommt
+        lediglich die Adresse.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Url)
+    try {
+        Start-Process $Url
+        return $true
+    } catch {
+        return $false
     }
 }
 
@@ -190,7 +219,9 @@ foreach ($name in @(
     'ItemsAdapters','TxtUpnpState','ItemsUpnp',
     'ItemsThemes','SldDelay','TxtDelayValue','SldTimeout','TxtTimeoutValue','ChkListener',
     'ChkWarnLarge','TxtSettingsPath','BtnOpenSettingsFolder','BtnResetSettings',
-    'TxtAboutVersion','BtnOpenRepo','BtnOpenSource',
+    'TxtAboutVersion','BtnOpenRepo','BtnOpenSource','BtnShowWelcome',
+    'BtnAboutLinktree','BtnAboutDiscord','BtnAboutRepo','TxtRepoShort',
+    'BtnSideDiscord','BtnLinktree','BtnDiscord',
     'StatusDot','TxtStatus','ProgStatus','TxtStatusRight')) {
     $ui[$name] = Get-Ui $name
 }
@@ -897,7 +928,7 @@ function Start-PortTest {
         [System.Windows.MessageBox]::Show(
             'Die öffentliche IP ist noch nicht bekannt. Ohne sie kann von außen nicht geprüft werden.' +
             "`n`nBesteht eine Internetverbindung? Über 'Werte neu laden' auf der Übersicht lässt sich das wiederholen.",
-            'PortCheck', 'OK', 'Warning') | Out-Null
+            'TEE PortChecker', 'OK', 'Warning') | Out-Null
         return
     }
 
@@ -907,7 +938,7 @@ function Start-PortTest {
             "Diese Eingaben wurden nicht verstanden und übersprungen:`n  " +
             ($parsed.Invalid -join ', ') +
             "`n`nErlaubt sind einzelne Ports (80), Bereiche (1-1024) und Listen (80,443,3074).",
-            'PortCheck', 'OK', 'Warning') | Out-Null
+            'TEE PortChecker', 'OK', 'Warning') | Out-Null
     }
     if ($parsed.Ports.Count -eq 0) {
         Set-Status 'Keine gültigen Ports angegeben.' 'warn'
@@ -921,7 +952,7 @@ function Start-PortTest {
             "$($parsed.Ports.Count) Ports werden geprüft. Geschätzte Dauer: ca. $estimate.`n`n" +
             "Der externe Dienst begrenzt die Anfragen - schneller geht es nicht, ohne gesperrt zu werden.`n`n" +
             'Wirklich starten?',
-            'PortCheck', 'YesNo', 'Question')
+            'TEE PortChecker', 'YesNo', 'Question')
         if ($answer -ne 'Yes') { return }
     }
 
@@ -1273,7 +1304,7 @@ $ui.BtnOpenSettingsFolder.Add_Click({
 $ui.BtnResetSettings.Add_Click({
     $answer = [System.Windows.MessageBox]::Show(
         'Alle Einstellungen auf die Standardwerte zurücksetzen?',
-        'PortCheck', 'YesNo', 'Question')
+        'TEE PortChecker', 'YesNo', 'Question')
     if ($answer -ne 'Yes') { return }
 
     $script:Settings = Get-DefaultSettings
@@ -1293,15 +1324,151 @@ $ui.BtnResetSettings.Add_Click({
 # Region: Über
 # ------------------------------------------------------------------------------
 
-$ui.TxtVersionChip.Text   = "v$script:AppVersion"
-$ui.TxtAboutVersion.Text  = "PortCheck $script:AppVersion  -  läuft auf PowerShell $($PSVersionTable.PSVersion)"
+$ui.TxtVersionChip.Text  = "v$script:AppVersion"
+$ui.TxtAboutVersion.Text = "$script:AppName $script:AppVersion  -  läuft auf PowerShell $($PSVersionTable.PSVersion)"
+$ui.TxtRepoShort.Text    = $script:RepoUrl -replace '^https://', ''
 
 $ui.BtnOpenRepo.Add_Click({
-    try { Start-Process $script:RepoUrl } catch { Set-Status 'Browser ließ sich nicht öffnen.' 'warn' }
+    if (-not (Open-ExternalLink $script:RepoUrl)) { Set-Status 'Browser ließ sich nicht öffnen.' 'warn' }
 })
 $ui.BtnOpenSource.Add_Click({
     try { Start-Process explorer.exe $script:Root } catch { }
 })
+
+# ------------------------------------------------------------------------------
+# Region: Verweise nach draußen
+# ------------------------------------------------------------------------------
+
+# Zuordnung Schaltfläche -> Adresse. Bewusst über den Elementnamen und NICHT
+# über .Tag: Tag trägt bei diesen Schaltflächen bereits das Symbolzeichen der
+# Vorlage. Und bewusst ohne .GetNewClosure(), weil das die $script:-Ebene
+# verbiegen würde - der Handler fragt stattdessen das auslösende Element.
+$script:LinkMap = @{
+    'BtnLinktree'      = @{ Url = $script:LinktreeUrl; Text = 'linktr.ee wird im Browser geöffnet.' }
+    'BtnAboutLinktree' = @{ Url = $script:LinktreeUrl; Text = 'linktr.ee wird im Browser geöffnet.' }
+    'BtnWelcomeLink'   = @{ Url = $script:LinktreeUrl; Text = 'linktr.ee wird im Browser geöffnet.' }
+    'BtnDiscord'       = @{ Url = $script:DiscordUrl;  Text = 'Discord-Einladung wird geöffnet.' }
+    'BtnAboutDiscord'  = @{ Url = $script:DiscordUrl;  Text = 'Discord-Einladung wird geöffnet.' }
+    'BtnSideDiscord'   = @{ Url = $script:DiscordUrl;  Text = 'Discord-Einladung wird geöffnet.' }
+    'BtnAboutRepo'     = @{ Url = $script:RepoUrl;     Text = 'Projektseite wird geöffnet.' }
+}
+
+foreach ($linkName in @('BtnLinktree', 'BtnAboutLinktree', 'BtnDiscord',
+                        'BtnAboutDiscord', 'BtnSideDiscord', 'BtnAboutRepo')) {
+    $ui[$linkName].Add_Click({
+        param($sender, $eventArgs)
+        $ziel = $script:LinkMap[$sender.Name]
+        if (-not $ziel) { return }
+        if (Open-ExternalLink $ziel.Url) {
+            Set-Status $ziel.Text 'ok'
+        } else {
+            Set-Status 'Der Browser ließ sich nicht öffnen.' 'warn'
+        }
+    })
+}
+
+# ------------------------------------------------------------------------------
+# Region: Willkommensfenster
+# ------------------------------------------------------------------------------
+
+function Show-WelcomeWindow {
+    <#
+    .SYNOPSIS
+        Zeigt das Willkommensfenster als modales Fenster über der Anwendung.
+    .DESCRIPTION
+        Es wird bei jedem Aufruf frisch aufgebaut. Das kostet ein paar
+        Millisekunden, spart aber Zustand: das Fenster erscheint im Normalfall
+        genau einmal im Leben der Installation.
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.Load($script:WelcomePath)
+        $fenster = [System.Windows.Markup.XamlReader]::Load(
+            (New-Object System.Xml.XmlNodeReader -ArgumentList $doc))
+    } catch {
+        Set-Status "Willkommensfenster ließ sich nicht laden: $($_.Exception.Message)" 'warn'
+        return
+    }
+
+    # Eigenes Fenster, eigene Ressourcen - deshalb das Theme hier erneut
+    # eintragen.
+    Set-PortCheckTheme -Window $fenster -Theme $script:CurrentTheme
+    # Beim Abbild-Lauf ist das Hauptfenster nicht sichtbar - dann darf es auch
+    # nicht als Eigentümer gesetzt werden, sonst wirft WPF.
+    if (-not $script:WelcomeCapture) { $fenster.Owner = $script:Win }
+
+    $fenster.FindName('TxtWelcomeVersion').Text = "Version $script:AppVersion"
+
+    $fenster.FindName('WelcomeTitleBar').Add_MouseLeftButtonDown({
+        param($sender, $eventArgs)
+        try { [System.Windows.Window]::GetWindow($sender).DragMove() } catch { }
+    })
+
+    $schliessen = {
+        param($sender, $eventArgs)
+        [System.Windows.Window]::GetWindow($sender).Close()
+    }
+    $fenster.FindName('BtnWelcomeClose').Add_Click($schliessen)
+    $fenster.FindName('BtnWelcomeStart').Add_Click($schliessen)
+
+    # Die beiden Verweise. Auch hier ohne Closure - die Adresse hängt am
+    # Element, das Symbol steckt in Tag und bleibt unangetastet.
+    $discord = $fenster.FindName('BtnWelcomeDiscord')
+    $discord.DataContext = $script:DiscordUrl
+    $discord.Add_Click({
+        param($sender, $eventArgs)
+        [void](Open-ExternalLink ([string]$sender.DataContext))
+    })
+
+    $linktree = $fenster.FindName('BtnWelcomeLinktree')
+    $linktree.DataContext = $script:LinktreeUrl
+    $linktree.Add_Click({
+        param($sender, $eventArgs)
+        [void](Open-ExternalLink ([string]$sender.DataContext))
+    })
+
+    $fenster.Add_SourceInitialized({
+        param($sender, $eventArgs)
+        try {
+            $handle = (New-Object System.Windows.Interop.WindowInteropHelper($sender)).Handle
+            if ($handle -ne [IntPtr]::Zero) {
+                $dunkel = [int][bool]$script:CurrentTheme.IsDark
+                [void][PortCheck.Dwm]::DwmSetWindowAttribute($handle, 20, [ref]$dunkel, 4)
+                $rund = 2
+                [void][PortCheck.Dwm]::DwmSetWindowAttribute($handle, 33, [ref]$rund, 4)
+            }
+        } catch { }
+    })
+
+    # Entwicklerlauf: kurz zeichnen lassen, abbilden, schließen.
+    if ($script:WelcomeCapture) {
+        $fenster.Add_ContentRendered({
+            param($sender, $eventArgs)
+            $timer = New-Object System.Windows.Threading.DispatcherTimer
+            $timer.Interval = [TimeSpan]::FromMilliseconds(900)
+            $timer.Add_Tick({
+                param($t, $e)
+                $t.Stop()
+                try {
+                    Save-WindowImage -Path $script:WelcomeCapture -Window $script:WelcomeFenster
+                    Write-Output "Abbild gespeichert: $script:WelcomeCapture"
+                } catch {
+                    Write-Output "Abbild fehlgeschlagen: $($_.Exception.Message)"
+                }
+                $script:WelcomeFenster.Close()
+            })
+            $timer.Start()
+        })
+        $script:WelcomeFenster = $fenster
+    }
+
+    [void]$fenster.ShowDialog()
+}
+
+$ui.BtnShowWelcome.Add_Click({ Show-WelcomeWindow })
 
 # ------------------------------------------------------------------------------
 # Region: Start
@@ -1397,6 +1564,15 @@ $script:Win.Add_Loaded({
     if ($script:Settings.LastPorts) { $ui.TxtPortSpec.Text = [string]$script:Settings.LastPorts }
     [void](Start-Work -Body $script:WorkerInit)
     Set-Status 'Ermittle Netzwerkdaten...' 'busy'
+
+    # Beim allerersten Start einmal Danke sagen. Danach nie wieder ungefragt -
+    # wer es nochmal sehen will, findet den Knopf unter "Über und Hilfe".
+    # Das Fenster ist modal, der Hintergrund-Runspace läuft dahinter weiter.
+    if ($script:ZeigeWillkommen) {
+        Show-WelcomeWindow
+        $script:Settings.WelcomeShown = $true
+        Export-AppSettings
+    }
 })
 
 $script:Win.Add_Closing({
@@ -1423,6 +1599,15 @@ $script:LiveSpec     = $LiveTest
 $script:LiveCapture  = $(if ($LiveTest -and $CaptureTo) { $CaptureTo } else { '' })
 $script:LiveReport   = New-Object 'System.Collections.Generic.List[string]'
 
+# Willkommensfenster: beim ersten Start automatisch, sonst nur auf Wunsch.
+# Bei Selbsttest und Bildaufnahme bleibt es aus, damit nichts blockiert.
+$script:WelcomeCapture  = $(if ($ShowWelcome -and $CaptureTo) { $CaptureTo } else { '' })
+$script:WelcomeFenster  = $null
+$script:ZeigeWillkommen = [bool](
+    ($ShowWelcome -or -not $script:Settings.WelcomeShown) -and
+    -not $SelfTest -and -not $LiveTest -and
+    (-not $CaptureTo -or $script:WelcomeCapture))
+
 # ------------------------------------------------------------------------------
 # Region: Entwickler-Optionen
 # ------------------------------------------------------------------------------
@@ -1436,20 +1621,25 @@ function Save-WindowImage {
         verlässlicher als ein Bildschirmfoto: es ist egal, ob das Fenster
         gerade verdeckt ist oder den Fokus hat.
     #>
-    param([Parameter(Mandatory = $true)][string]$Path)
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [System.Windows.Window]$Window
+    )
+
+    if (-not $Window) { $Window = $script:Win }
 
     # Erst das Layout nachziehen lassen. Ohne das zeichnet RenderTargetBitmap
     # den Stand VOR den letzten Änderungen - Listen erscheinen dann leer und
     # Texte sind veraltet.
-    $script:Win.UpdateLayout()
+    $Window.UpdateLayout()
 
-    $width  = [int]$script:Win.ActualWidth
-    $height = [int]$script:Win.ActualHeight
+    $width  = [int]$Window.ActualWidth
+    $height = [int]$Window.ActualHeight
     if ($width -le 0 -or $height -le 0) { throw 'Fenster hat noch keine Größe.' }
 
     $bitmap = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
         $width, $height, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
-    $bitmap.Render($script:Win)
+    $bitmap.Render($Window)
 
     $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
     $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
@@ -1460,6 +1650,14 @@ function Save-WindowImage {
     }
     $stream = [System.IO.File]::Create($Path)
     try { $encoder.Save($stream) } finally { $stream.Dispose() }
+}
+
+# Abbild NUR vom Willkommensfenster: das Hauptfenster bleibt zu.
+# Muss NACH Save-WindowImage stehen - PowerShell kennt eine Funktion erst ab
+# der Zeile, in der sie definiert wurde.
+if ($script:WelcomeCapture) {
+    Show-WelcomeWindow
+    exit 0
 }
 
 if ($SelfTest) {

@@ -1,15 +1,38 @@
-# PortCheck
+<div align="center">
+
+# TEE PortChecker
 
 **Prüft, ob deine Ports wirklich aus dem Internet erreichbar sind — und sagt dir ehrlich, was der Test kann und was nicht.**
 
-[![Tests](https://github.com/TheErsysEnding/PortCheck/actions/workflows/ci.yml/badge.svg)](https://github.com/TheErsysEnding/PortCheck/actions/workflows/ci.yml)
+[![Discord](https://img.shields.io/badge/Discord-discord.gg%2Fteebug-5865F2?logo=discord&logoColor=white)](https://discord.gg/teebug)
+[![Linktree](https://img.shields.io/badge/Alle%20Links-linktr.ee%2Ftheersysending-39E09B?logo=linktree&logoColor=white)](https://linktr.ee/theersysending)
+
+[![Tests](https://github.com/TheErsysEnding/TEE-PortChecker/actions/workflows/ci.yml/badge.svg)](https://github.com/TheErsysEnding/TEE-PortChecker/actions/workflows/ci.yml)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-22D3EE.svg)](LICENSE)
 [![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE.svg)](#voraussetzungen)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6.svg)](#voraussetzungen)
 
 *[English version below ↓](#english)*
 
-![PortCheck Übersicht](docs/images/01-uebersicht.png)
+</div>
+
+![TEE PortChecker Übersicht](docs/images/01-uebersicht.png)
+
+---
+
+> ### 💙 Danke, dass du mein Tool benutzt!
+>
+> TEE PortChecker ist **kostenlos und quelloffen** und entsteht in meiner Freizeit.
+> Wenn es dir hilft, ist die beste Unterstützung: vorbeischauen, weitersagen,
+> Fehler melden. Kostet nichts und hält das Projekt am Leben.
+>
+> **Discord:** [discord.gg/teebug](https://discord.gg/teebug) &nbsp;·&nbsp;
+> **Alle Links:** [linktr.ee/theersysending](https://linktr.ee/theersysending)
+
+<div align="center">
+  <img src="docs/images/00-willkommen.png" alt="Willkommensfenster beim ersten Start" width="420">
+  <p><i>Beim ersten Start — danach nur noch auf Wunsch über „Über &amp; Hilfe".</i></p>
+</div>
 
 ---
 
@@ -19,7 +42,7 @@ Wenn im Spiel „NAT-Typ: strikt" steht oder dein Minecraft-Server für Freunde
 unerreichbar bleibt, hilft nur eine Frage: **Kommt von außen wirklich etwas durch?**
 
 Das lässt sich vom eigenen Rechner aus nicht beantworten — dafür braucht es
-jemanden im Internet, der von draußen anklopft. Genau das macht PortCheck:
+jemanden im Internet, der von draußen anklopft. Genau das macht TEE PortChecker:
 
 1. Es öffnet kurz einen lokalen Listener auf dem Port, der geprüft werden soll.
    *Ohne diesen Schritt meldet selbst eine korrekt eingerichtete Portweiterleitung
@@ -28,7 +51,7 @@ jemanden im Internet, der von draußen anklopft. Genau das macht PortCheck:
    öffentliche IP und genau diesen Port.
 3. Kommt die Verbindung zustande → **offen**. Sonst → **zu**.
 
-Zusätzlich misst PortCheck deinen **NAT-Typ** mit derselben Technik, die Spiele
+Zusätzlich misst TEE PortChecker deinen **NAT-Typ** mit derselben Technik, die Spiele
 und Videochats benutzen (STUN).
 
 ## Was das Werkzeug NICHT kann
@@ -52,16 +75,16 @@ Diese Liste steht bewusst weit oben und nicht im Kleingedruckten:
 ## Start
 
 ```bash
-git clone https://github.com/TheErsysEnding/PortCheck.git
+git clone https://github.com/TheErsysEnding/TEE-PortChecker.git
 ```
 
-Dann **`PortCheck.bat`** doppelklicken. Das war's — es wird nichts installiert,
+Dann **`TEE-PortChecker.bat`** doppelklicken. Das war's — es wird nichts installiert,
 nichts in die Registry geschrieben und keine Adminrechte verlangt.
 
 | Datei | Wozu |
 |---|---|
-| `PortCheck.bat` | Grafische Oberfläche |
-| `PortCheck-Konsole.bat` | Textfassung für Server ohne Desktop |
+| `TEE-PortChecker.bat` | Grafische Oberfläche |
+| `TEE-PortChecker-Konsole.bat` | Textfassung für Server ohne Desktop |
 
 > **Windows-Firewall:** Beim ersten Start fragt Windows nach einer Freigabe.
 > Diese **muss erlaubt werden** — ohne sie kann der lokale Listener keine
@@ -200,7 +223,7 @@ Vollständige Liste. Es gibt keine Telemetrie, keine Konten und keine Werbung.
 | NAT-Typ | STUN von Google, Cloudflare, Nextcloud, sipgate | leere STUN-Anfragen, keine Inhalte |
 | UPnP-Suche | SSDP-Multicast | bleibt vollständig im lokalen Netz |
 
-Gespeichert wird ausschließlich `%APPDATA%\PortCheck\settings.json` mit den
+Gespeichert wird ausschließlich `%APPDATA%\TEE-PortChecker\settings.json` mit den
 Oberflächen-Einstellungen — **keine Messergebnisse, keine IP-Adressen, kein Verlauf.**
 
 ---
@@ -208,9 +231,9 @@ Oberflächen-Einstellungen — **keine Messergebnisse, keine IP-Adressen, kein V
 ## Aufbau
 
 ```
-PortCheck/
-├─ PortCheck.bat              Start der Oberfläche
-├─ PortCheck-Konsole.bat      Start der Textfassung
+TEE-PortChecker/
+├─ TEE-PortChecker.bat              Start der Oberfläche
+├─ TEE-PortChecker-Konsole.bat      Start der Textfassung
 ├─ src/
 │  ├─ Gui.xaml                Aussehen und Anordnung (reines XAML)
 │  ├─ PortCheck.Gui.ps1       Oberflächen-Logik, Hintergrund-Runspaces
@@ -218,7 +241,7 @@ PortCheck/
 │  ├─ PortCheck.Core.ps1      Messlogik — ohne jede Oberfläche
 │  ├─ PortCheck.Presets.ps1   Portlisten der Spiele
 │  └─ PortCheck.Themes.ps1    Farbwelten
-└─ tests/Run-Tests.ps1        87 Tests, ohne Fremdmodule
+└─ tests/Run-Tests.ps1        100 Tests, ohne Fremdmodule
 ```
 
 Die Trennung ist Absicht: **`PortCheck.Core.ps1` enthält kein einziges
@@ -240,7 +263,7 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-87 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+100 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
 
@@ -271,7 +294,7 @@ jeweils mit Quellenangabe. Details in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <a name="english"></a>
 
-# PortCheck — English
+# TEE PortChecker — English
 
 **Checks whether your ports are actually reachable from the internet — and tells
 you honestly what the test can and cannot do.**
@@ -281,7 +304,7 @@ you honestly what the test can and cannot do.**
 When a game reports "NAT type: strict" or friends cannot reach your Minecraft
 server, only one question matters: **does anything actually get through from
 outside?** You cannot answer that from your own machine — you need someone on the
-internet to knock. That is what PortCheck does:
+internet to knock. That is what TEE PortChecker does:
 
 1. It briefly opens a local listener on the port under test. *Without this step
    even a correctly configured port forward reports "closed", because nothing
@@ -308,10 +331,10 @@ video chat use.
 ## Getting started
 
 ```bash
-git clone https://github.com/TheErsysEnding/PortCheck.git
+git clone https://github.com/TheErsysEnding/TEE-PortChecker.git
 ```
 
-Double-click **`PortCheck.bat`**. Nothing is installed, nothing is written to the
+Double-click **`TEE-PortChecker.bat`**. Nothing is installed, nothing is written to the
 registry, no admin rights are required. Requires Windows 10/11 with Windows
 PowerShell 5.1 (present out of the box) — no .NET SDK, no third-party modules.
 
@@ -348,7 +371,7 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-87 tests, no third-party modules, no network access — they run offline.
+100 tests, no third-party modules, no network access — they run offline.
 
 ## Why PowerShell instead of a compiled `.exe`?
 

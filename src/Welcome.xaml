@@ -1,0 +1,303 @@
+﻿<!--
+================================================================================
+ TEE PortChecker - Willkommensfenster
+================================================================================
+ Wird genau einmal gezeigt: beim allerersten Start. Danach merkt sich das
+ Programm in den Einstellungen, dass es schon zu sehen war. Über die Seite
+ "Über &amp; Hilfe" lässt es sich jederzeit wieder aufrufen.
+
+ Diese Datei bringt ihre Stile selbst mit. Ein zweites Fenster sieht die
+ Ressourcen des Hauptfensters nicht - deshalb steht hier bewusst eine kleine
+ Wiederholung statt einer Kopierlogik zur Laufzeit, die schwer zu durchschauen
+ wäre.
+
+ Die Farben kommen wie überall per DynamicResource aus der Theme-Datei; das
+ Fenster bekommt sie über Set-PortCheckTheme eingetragen.
+================================================================================
+-->
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+    Title="Willkommen bei TEE PortChecker"
+    Height="712" Width="560"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="None"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    Background="{DynamicResource WindowBackgroundBrush}"
+    TextOptions.TextFormattingMode="Ideal"
+    UseLayoutRounding="True"
+    FontFamily="Segoe UI Variable Text, Segoe UI"
+    FontSize="13">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Courier New</FontFamily>
+        <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+        <FontFamily x:Key="DisplayFont">Segoe UI Variable Display, Segoe UI</FontFamily>
+
+        <!-- Bildlaufleiste im gleichen Stil wie das Hauptfenster -->
+        <Style x:Key="ScrollThumb" TargetType="Thumb">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd" Background="{DynamicResource ScrollBrush}"
+                                CornerRadius="3" Margin="3,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ScrollHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ScrollThumb}"/>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Hauptschaltfläche -->
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource AccentFgBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="18,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Glow" CornerRadius="7" Opacity="0"
+                                    Background="{DynamicResource AccentBrush}">
+                                <Border.Effect>
+                                    <BlurEffect Radius="14"/>
+                                </Border.Effect>
+                            </Border>
+                            <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource AccentGradientBrush}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Glow" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Verweis-Karte -->
+        <Style x:Key="SocialCard" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="10" Padding="16,14"
+                                Background="{DynamicResource SurfaceAltBrush}"
+                                BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="10"
+                                        Background="{DynamicResource AccentGradientBrush}">
+                                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="18"
+                                               TextOptions.TextFormattingMode="Display"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Text="{TemplateBinding Tag}"
+                                               Foreground="{DynamicResource AccentFgBrush}"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <ContentPresenter/>
+                                </StackPanel>
+                                <TextBlock x:Name="Pfeil" Grid.Column="2" FontFamily="{StaticResource IconFont}"
+                                           FontSize="13" Text="&#xE8A7;" Margin="8,0,0,0"
+                                           TextOptions.TextFormattingMode="Display"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource FgFaintBrush}"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Pfeil" Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Schmale Leiste zum Verschieben und Schließen -->
+            <Border x:Name="WelcomeTitleBar" Grid.Row="0" Background="{DynamicResource SurfaceBrush}">
+                <Grid>
+                    <TextBlock Text="Willkommen" VerticalAlignment="Center" Margin="14,0,0,0"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource FgFaintBrush}"/>
+                    <Button x:Name="BtnWelcomeClose" HorizontalAlignment="Right" Width="46" Height="38"
+                            FontFamily="{StaticResource IconFont}" FontSize="10"
+                            Content="&#xE8BB;" Foreground="{DynamicResource FgDimBrush}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background"
+                                                Value="{DynamicResource CloseHoverBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="34,26,34,0">
+                <StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Border Width="52" Height="52" CornerRadius="13"
+                                Background="{DynamicResource AccentGradientBrush}">
+                            <Path Data="M 4,12 A 8,8 0 0 1 20,12 M 7.5,12 A 4.5,4.5 0 0 1 16.5,12"
+                                  Stroke="{DynamicResource AccentFgBrush}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stretch="Uniform" Margin="11,13,11,15"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
+                            <TextBlock FontFamily="{StaticResource DisplayFont}" FontSize="23">
+                                <Run Text="TEE" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}"/><Run Text=" PortChecker" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"/>
+                            </TextBlock>
+                            <TextBlock x:Name="TxtWelcomeVersion" Text="Version 1.0.0" FontSize="11"
+                                       Margin="0,2,0,0" Foreground="{DynamicResource FgFaintBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Danke, dass du mein Tool benutzt!"
+                               FontFamily="{StaticResource DisplayFont}"
+                               FontSize="19" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               TextAlignment="Center" Margin="0,24,0,0"
+                               Foreground="{DynamicResource FgBrush}"/>
+
+                    <TextBlock HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               MaxWidth="430" Margin="0,10,0,0" FontSize="13" LineHeight="20"
+                               Foreground="{DynamicResource FgDimBrush}"
+                               Text="TEE PortChecker ist kostenlos, quelloffen und entsteht in meiner Freizeit. Dass du es heruntergeladen hast, unterstützt mich schon."/>
+
+                    <TextBlock HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               MaxWidth="430" Margin="0,10,0,0" FontSize="13" LineHeight="20"
+                               Foreground="{DynamicResource FgDimBrush}"
+                               Text="Wenn du mehr tun magst: schau auf meinem Discord vorbei oder folge mir. Kostet nichts und hilft mir enorm."/>
+
+                    <StackPanel Margin="0,22,0,0">
+                        <Button x:Name="BtnWelcomeDiscord" Style="{StaticResource SocialCard}"
+                                Tag="&#xE8F2;" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="TEEBUG Discord-Server" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{DynamicResource FgBrush}"/>
+                                <TextBlock Text="discord.gg/teebug" FontSize="11" Margin="0,3,0,0"
+                                           FontFamily="{StaticResource MonoFont}"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="BtnWelcomeLinktree" Style="{StaticResource SocialCard}"
+                                Tag="&#xE71B;">
+                            <StackPanel>
+                                <TextBlock Text="Alle meine Links" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{DynamicResource FgBrush}"/>
+                                <TextBlock Text="linktr.ee/theersysending" FontSize="11" Margin="0,3,0,0"
+                                           FontFamily="{StaticResource MonoFont}"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Ehrlicher Hinweis, damit niemand überrascht wird -->
+                    <Border CornerRadius="8" Padding="14,11" Margin="0,20,0,20"
+                            Background="{DynamicResource SurfaceAltBrush}"
+                            BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="1">
+                        <!-- Raster statt waagerechtem StackPanel: nur so bekommt
+                             der Text eine begrenzte Breite und bricht um. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontFamily="{StaticResource IconFont}" FontSize="14"
+                                       Text="&#xE946;" VerticalAlignment="Top" Margin="0,1,0,0"
+                                       TextOptions.TextFormattingMode="Display"
+                                       Foreground="{DynamicResource WarnBrush}"/>
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap" Margin="10,0,0,0"
+                                       FontSize="11" LineHeight="17"
+                                       Foreground="{DynamicResource FgFaintBrush}"
+                                       Text="Kurz vorweg: Beim Prüfen fragt Windows nach einer Firewall-Freigabe - die muss erlaubt werden, sonst wird alles als geschlossen gemeldet. Und der Port-Test überträgt deine öffentliche IP an einen externen Dienst, weil er ohne einen Rechner außerhalb deines Netzes technisch nicht möglich ist. Alle Einzelheiten stehen unter 'Über und Hilfe'."/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="0,1,0,0"
+                    Padding="34,16">
+                <Grid>
+                    <TextBlock x:Name="TxtWelcomeFoot" VerticalAlignment="Center" FontSize="11"
+                               Foreground="{DynamicResource FgFaintBrush}"
+                               Text="Dieses Fenster erscheint nur beim ersten Start."/>
+                    <Button x:Name="BtnWelcomeStart" Style="{StaticResource AccentButton}"
+                            Content="Los geht's" HorizontalAlignment="Right" MinWidth="140"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
