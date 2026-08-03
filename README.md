@@ -108,6 +108,12 @@ dasselbe Zahnrad-Symbol und lässt kurz ein schwarzes Fenster aufblitzen.
 Übersetzt wird mit dem C#-Compiler des .NET Framework, der auf jedem Windows
 ohnehin vorhanden ist. Kein Visual Studio, kein SDK, kein Download.
 
+*Ehrlich dazugesagt:* dein Nachbau wird **nicht bitgenau** dieselbe Datei
+ergeben. Der Compiler stempelt in jeden Durchlauf einen Zeitstempel und eine
+neue Modul-Kennung — 18 von 41 984 Byte weichen deshalb ab. Ein Hash-Vergleich
+taugt hier also nicht zur Prüfung. Was taugt: die 100 Zeilen in `Launcher.cs`
+lesen. Länger dauert es nicht.
+
 > **SmartScreen:** Die Datei ist nicht signiert. Beim ersten Start aus dem
 > Internet meldet Windows deshalb „Der Computer wurde durch Windows geschützt".
 > Über *Weitere Informationen → Trotzdem ausführen* geht es weiter. Eine Signatur
