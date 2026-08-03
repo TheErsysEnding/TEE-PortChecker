@@ -797,6 +797,84 @@ try { $upnpPs.Stop() } catch { }
 try { $upnpPs.Dispose(); $upnpRs.Close(); $upnpRs.Dispose() } catch { }
 
 # ------------------------------------------------------------------------------
+Start-Group 'Programmsymbol und Starter'
+# ------------------------------------------------------------------------------
+
+$symbolPfad = Join-Path $script:Root 'docs\TEE-PortChecker.ico'
+
+Test-Case 'Symboldatei ist vorhanden' { Test-Path $symbolPfad }
+Test-Case 'Symboldatei ist eine gültige ICO' {
+    $b = [System.IO.File]::ReadAllBytes($symbolPfad)
+    if ($b.Length -lt 22) { return 'Datei zu klein' }
+    if ([BitConverter]::ToUInt16($b, 0) -ne 0) { return 'reserviertes Feld ist nicht 0' }
+    if ([BitConverter]::ToUInt16($b, 2) -ne 1) { return 'Typ ist nicht 1 (Symbol)' }
+    ([BitConverter]::ToUInt16($b, 4)) -ge 4
+}
+Test-Case 'Symbol enthält alle benötigten Größen' {
+    # Windows greift je nach Ansicht auf unterschiedliche Größen zu. Fehlt eine,
+    # skaliert Windows selbst - und das sieht bei 16 Punkten matschig aus.
+    $b = [System.IO.File]::ReadAllBytes($symbolPfad)
+    $anzahl = [BitConverter]::ToUInt16($b, 4)
+    $vorhanden = @()
+    for ($i = 0; $i -lt $anzahl; $i++) {
+        $k = [int]$b[6 + ($i * 16)]
+        if ($k -eq 0) { $k = 256 }
+        $vorhanden += $k
+    }
+    $pflicht = @(16, 32, 48, 256)
+    $fehlt = @($pflicht | Where-Object { $vorhanden -notcontains $_ })
+    if ($fehlt.Count -eq 0) { return $true }
+    return 'fehlt: ' + ($fehlt -join ', ')
+}
+Test-Case 'Jedes eingebettete Bild ist ein vollständiges PNG' {
+    # Beim Bauen ging genau das einmal schief: PowerShell entrollt Byte-Arrays
+    # beim Zurückgeben, und in der Datei landeten statt der Bilder acht
+    # einzelne Bytes. Von aussen sah die ICO trotzdem plausibel aus.
+    $b = [System.IO.File]::ReadAllBytes($symbolPfad)
+    $anzahl = [BitConverter]::ToUInt16($b, 4)
+    for ($i = 0; $i -lt $anzahl; $i++) {
+        $kopf    = 6 + ($i * 16)
+        $laenge  = [int][BitConverter]::ToUInt32($b, $kopf + 8)
+        $versatz = [int][BitConverter]::ToUInt32($b, $kopf + 12)
+        if ($versatz + $laenge -gt $b.Length) { return "Bild $i reicht über das Dateiende hinaus" }
+        if ($laenge -lt 100) { return "Bild $i ist nur $laenge Byte gross" }
+        if ($b[$versatz] -ne 0x89 -or $b[$versatz + 1] -ne 0x50 -or
+            $b[$versatz + 2] -ne 0x4E -or $b[$versatz + 3] -ne 0x47) {
+            return "Bild $i hat keine PNG-Kennung"
+        }
+    }
+    return $true
+}
+Test-Case 'Symbol lässt sich als Bild laden' {
+    $bild = New-Object System.Windows.Media.Imaging.BitmapImage
+    $bild.BeginInit()
+    $bild.UriSource   = New-Object System.Uri($symbolPfad)
+    $bild.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+    $bild.EndInit()
+    $bild.PixelWidth -gt 0
+}
+Test-Case 'Quelltext des Starters liegt bei' {
+    # Eine .exe ohne mitgelieferten Quelltext waere in diesem Projekt ein
+    # Fremdkörper - man müsste ihr blind vertrauen.
+    Test-Path (Join-Path $script:Root 'tools\Launcher.cs')
+}
+Test-Case 'Bauskript für den Starter liegt bei' {
+    Test-Path (Join-Path $script:Root 'tools\Build-Exe.ps1')
+}
+Test-Case 'Der Starter verweist auf den richtigen Pfad' {
+    $quelle = [System.IO.File]::ReadAllText(
+        (Join-Path $script:Root 'tools\Launcher.cs'), [System.Text.Encoding]::UTF8)
+    $quelle -match 'src\\PortCheck\.Gui\.ps1'
+}
+Test-Case 'Die Oberfläche setzt das Fenstersymbol' {
+    # Ohne das zeigt die Taskleiste das Symbol von powershell.exe - auch beim
+    # Start über die .exe.
+    $quelle = [System.IO.File]::ReadAllText(
+        (Join-Path $script:SrcDir 'PortCheck.Gui.ps1'), [System.Text.Encoding]::UTF8)
+    ([regex]::Matches($quelle, 'Set-WindowIcon -Window')).Count -ge 3
+}
+
+# ------------------------------------------------------------------------------
 Start-Group 'Quelldateien'
 # ------------------------------------------------------------------------------
 

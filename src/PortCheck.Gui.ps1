@@ -202,6 +202,32 @@ $xamlDoc.Load($script:XamlPath)
 $script:Win = [System.Windows.Markup.XamlReader]::Load(
     (New-Object System.Xml.XmlNodeReader -ArgumentList $xamlDoc))
 
+$script:IconPath = Join-Path (Split-Path -Parent $script:Root) 'docs\TEE-PortChecker.ico'
+
+function Set-WindowIcon {
+    <#
+    .SYNOPSIS
+        Setzt das Programmsymbol auf ein Fenster.
+    .DESCRIPTION
+        Ohne das zeigen Fenster und Taskleiste das Symbol von powershell.exe -
+        auch dann, wenn das Programm über die .exe gestartet wurde. Das Symbol
+        der .exe gilt nämlich nur für die Datei im Explorer; das Fenster gehört
+        zum PowerShell-Prozess und braucht seine eigene Angabe.
+    #>
+    param([Parameter(Mandatory = $true)][System.Windows.Window]$Window)
+
+    if (-not (Test-Path $script:IconPath)) { return }
+    try {
+        $bild = New-Object System.Windows.Media.Imaging.BitmapImage
+        $bild.BeginInit()
+        $bild.UriSource   = New-Object System.Uri($script:IconPath)
+        $bild.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+        $bild.EndInit()
+        $bild.Freeze()
+        $Window.Icon = $bild
+    } catch { }
+}
+
 function Get-Ui {
     <#
     .SYNOPSIS
@@ -2005,6 +2031,7 @@ function Show-WelcomeWindow {
     # Eigenes Fenster, eigene Ressourcen - deshalb das Theme hier erneut
     # eintragen.
     Set-PortCheckTheme -Window $fenster -Theme $script:CurrentTheme
+    Set-WindowIcon -Window $fenster
     # Beim Abbild-Lauf ist das Hauptfenster nicht sichtbar - dann darf es auch
     # nicht als Eigentümer gesetzt werden, sonst wirft WPF.
     if (-not $script:WelcomeCapture) { $fenster.Owner = $script:Win }
@@ -2167,6 +2194,7 @@ function Show-ShareWindow {
     }
 
     Set-PortCheckTheme -Window $fenster -Theme $script:CurrentTheme
+    Set-WindowIcon -Window $fenster
     $fenster.Owner = $script:Win
 
     $offen  = @($script:RawResults | Where-Object { $_.Status -eq 'Open' })
@@ -2485,6 +2513,7 @@ $script:Win.Add_Closing({
     Export-AppSettings
 })
 
+Set-WindowIcon -Window $script:Win
 Switch-AppTheme $script:CurrentTheme
 Show-Page $(if ($StartPage) { $StartPage } else { 'NavDashboard' })
 Update-ResultView

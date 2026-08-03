@@ -13,6 +13,7 @@
 
 # Binärdateien nicht anfassen
 *.png   binary
+*.exe   binary
 *.jpg   binary
 *.ico   binary
 

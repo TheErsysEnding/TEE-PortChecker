@@ -78,13 +78,43 @@ Diese Liste steht bewusst weit oben und nicht im Kleingedruckten:
 git clone https://github.com/TheErsysEnding/TEE-PortChecker.git
 ```
 
-Dann **`TEE-PortChecker.bat`** doppelklicken. Das war's — es wird nichts installiert,
+Dann **`TEE-PortChecker.exe`** doppelklicken. Das war's — es wird nichts installiert,
 nichts in die Registry geschrieben und keine Adminrechte verlangt.
 
 | Datei | Wozu |
 |---|---|
-| `TEE-PortChecker.bat` | Grafische Oberfläche |
+| `TEE-PortChecker.exe` | Grafische Oberfläche — mit Symbol, ohne aufblitzendes Konsolenfenster |
+| `TEE-PortChecker.bat` | Dasselbe ohne `.exe`, falls du der lieber ausweichst |
 | `TEE-PortChecker-Konsole.bat` | Textfassung für Server ohne Desktop |
+
+<details>
+<summary><b>Was die .exe ist — und was sie nicht ist</b></summary>
+
+Die `.exe` ist **42 KB gross und enthält keinen Programmcode des Werkzeugs.** Sie
+startet lediglich `src\PortCheck.Gui.ps1` mit den richtigen Schaltern und beendet
+sich wieder. Ihr vollständiger Quelltext liegt als
+[`tools/Launcher.cs`](tools/Launcher.cs) bei — rund 100 Zeilen, in einer Minute
+gelesen.
+
+Der Grund für sie ist allein die Optik: eine `.bat`-Datei zeigt in Windows immer
+dasselbe Zahnrad-Symbol und lässt kurz ein schwarzes Fenster aufblitzen.
+
+**Nachbauen kannst du sie selbst:**
+
+```powershell
+.\tools\Build-Exe.ps1
+```
+
+Übersetzt wird mit dem C#-Compiler des .NET Framework, der auf jedem Windows
+ohnehin vorhanden ist. Kein Visual Studio, kein SDK, kein Download.
+
+> **SmartScreen:** Die Datei ist nicht signiert. Beim ersten Start aus dem
+> Internet meldet Windows deshalb „Der Computer wurde durch Windows geschützt".
+> Über *Weitere Informationen → Trotzdem ausführen* geht es weiter. Eine Signatur
+> kostet Geld und ist an eine Firma oder eine ausgewiesene Person gebunden — wenn
+> dir das zu heikel ist, nimm einfach die `.bat`.
+
+</details>
 
 > **Windows-Firewall:** Beim ersten Start fragt Windows nach einer Freigabe.
 > Diese **muss erlaubt werden** — ohne sie kann der lokale Listener keine
@@ -318,7 +348,7 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-144 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+153 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
 
@@ -389,7 +419,7 @@ video chat use.
 git clone https://github.com/TheErsysEnding/TEE-PortChecker.git
 ```
 
-Double-click **`TEE-PortChecker.bat`**. Nothing is installed, nothing is written to the
+Double-click **`TEE-PortChecker.exe`**. (It is a 42 KB launcher whose full source ships as `tools/Launcher.cs`; the `.bat` does the same thing.) Nothing is installed, nothing is written to the
 registry, no admin rights are required. Requires Windows 10/11 with Windows
 PowerShell 5.1 (present out of the box) — no .NET SDK, no third-party modules.
 
@@ -437,7 +467,7 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-144 tests, no third-party modules, no network access — they run offline.
+153 tests, no third-party modules, no network access — they run offline.
 
 ## Why PowerShell instead of a compiled `.exe`?
 

@@ -21,3 +21,9 @@ desktop.ini
 *.tmp
 *.bak
 *.log
+
+# Zwischenergebnisse beim Uebersetzen des Starters.
+# Die fertige TEE-PortChecker.exe wird BEWUSST mitgeliefert: sie ist 42 KB
+# gross, enthaelt keinen Programmcode und ihr Quelltext liegt als
+# tools/Launcher.cs daneben. Wer sie nicht will, nimmt die .bat.
+*.pdb
