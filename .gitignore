@@ -1,8 +1,16 @@
-# Ergebnisse, die beim Benutzen entstehen
+# Ergebnisse, die beim Benutzen entstehen.
+#
+# ACHTUNG beim Aendern: die Muster muessen zu den Vorgabenamen in
+# PortCheck.Gui.ps1 passen. Der Export heisst "portcheck_...", die
+# Teilen-Karte dagegen "portchecker_..." (mit "er") - ein einzelnes
+# portcheck_* faengt die Karte NICHT, weil nach "portcheck" ein "e" folgt
+# und kein "_". Genau das war hier schon einmal der Fall.
+# Gegenprobe: git check-ignore -v portchecker_2026-01-01_1200.png
 portcheck_*.csv
 portcheck_*.json
 portcheck_*.txt
-port-check-ergebnis_*.csv
+portcheck_*.png
+portchecker_*.png
 
 # Windows
 Thumbs.db

@@ -3,8 +3,17 @@
 ## Was TEE PortChecker tut — und was nicht
 
 TEE PortChecker öffnet Netzwerkverbindungen. Deshalb steht hier vollständig, was dabei
-passiert. Nachprüfen lässt sich alles im Quelltext; es gibt keine kompilierte
-Datei, der du vertrauen musst.
+passiert. Nachprüfen lässt sich alles im Quelltext — die gesamte Messtechnik
+liegt als PowerShell im Klartext bei.
+
+**Zur mitgelieferten `TEE-PortChecker.exe`:** die gibt es, und sie ist bewusst
+klein gehalten. 42 KB, **kein Programmcode des Werkzeugs darin** — sie startet
+`src\PortCheck.Gui.ps1` und beendet sich. Ihr vollständiger Quelltext liegt als
+[`tools/Launcher.cs`](tools/Launcher.cs) bei (rund 100 Zeilen) und lässt sich mit
+`tools/Build-Exe.ps1` selbst übersetzen. Sie ist **nicht signiert**, Windows
+SmartScreen warnt deshalb beim ersten Start. Wer einer Binärdatei grundsätzlich
+nicht traut, benutzt `TEE-PortChecker.bat` — das ist derselbe Weg ohne
+kompilierte Zwischenstufe.
 
 ### Ausgehende Verbindungen
 
@@ -13,7 +22,19 @@ Datei, der du vertrauen musst.
 | Port-Test | `ports.yougetsignal.com`, ersatzweise `canyouseeme.org` | deine öffentliche IP-Adresse und die Portnummer |
 | IP ermitteln | `api.ipify.org`, `ifconfig.me`, `checkip.amazonaws.com`, `icanhazip.com` | nur die Anfrage selbst |
 | NAT-Typ | `stun.l.google.com`, `stun1.l.google.com`, `stun.cloudflare.com`, `stun.nextcloud.com`, `stun.sipgate.net` | leere STUN-Binding-Anfragen, keine Inhalte |
+| IPv6-Prüfung | `api6.ipify.org`, `v6.ident.me`, `ipv6.icanhazip.com` | deine **vollständige** öffentliche IPv6-Adresse |
+| Verbindungsqualität | Router, dein DNS-Server, `1.1.1.1`, `8.8.8.8`, `9.9.9.9` | ICMP-Echo, keine Inhalte |
 | UPnP-Suche | SSDP-Multicast `239.255.255.250:1900` | verlässt das lokale Netz nicht |
+
+Die **IPv6-Prüfung** überträgt von allen Funktionen am meisten: eine globale
+IPv6-Adresse bezeichnet genau ein Gerät, während die IPv4 hinter NAT für einen
+ganzen Anschluss steht. Ohne die Anfrage lässt sich die Adresse nicht ermitteln —
+wer das nicht möchte, drückt den Knopf nicht. Beide Funktionen laufen
+ausschließlich auf ausdrücklichen Knopfdruck.
+
+Es gibt keinen Endpunkt des Autors. Kein Zählpixel, keine Nutzungsstatistik,
+keine Update-Abfrage, keine Lizenzprüfung. Der User-Agent enthält Programmnamen
+und Repo-Adresse, keine Gerätekennung.
 
 Der Port-Test **braucht** einen Rechner außerhalb deines Netzes — anders lässt
 sich Erreichbarkeit von außen nicht feststellen. Wer das nicht möchte, kann diese
@@ -52,11 +73,20 @@ nichts in die Registry und installiert nichts.
 
 Wenn du ein Sicherheitsproblem findest, melde es bitte über eine
 [GitHub Security Advisory](https://github.com/TheErsysEnding/TEE-PortChecker/security/advisories/new)
-oder als privates Issue — nicht als öffentlichen Bugreport, solange es
-ungepatcht ist.
+— nicht als öffentliches Issue, solange es ungepatcht ist.
+
+Falls der Link nicht funktioniert, geht auch eine Direktnachricht über
+[discord.gg/teebug](https://discord.gg/teebug). Ein „privates Issue" gibt es bei
+GitHub nicht: Issues in einem öffentlichen Repository sind immer für alle
+sichtbar.
 
 Bitte mit dabei: was passiert, wie man es nachstellt, und welche Windows- und
 PowerShell-Version du benutzt (`$PSVersionTable`).
+
+> **Bitte vorher schwärzen:** deine öffentliche IP-Adresse und den
+> Windows-Benutzernamen. PowerShell-Fehlermeldungen enthalten den vollen
+> Skriptpfad und damit oft deinen Benutzernamen — für den Fehlerbericht ist
+> beides nie nötig.
 
 ## Was hier ausdrücklich kein Sicherheitsproblem ist
 

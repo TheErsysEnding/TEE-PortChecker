@@ -3,10 +3,23 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [SemVer](https://semver.org/lang/de/).
 
-## [1.1.0] — 2026-08-02
+## [1.1.0] — 2026-08-04
 
 ### Neu
 
+- **Starter-EXE mit eigenem Programmsymbol.** `TEE-PortChecker.exe`, 42 KB,
+  **ohne Programmcode des Werkzeugs** — sie startet `src\PortCheck.Gui.ps1` und
+  beendet sich. Ihr Quelltext liegt als `tools/Launcher.cs` bei und lässt sich
+  mit `tools/Build-Exe.ps1` selbst übersetzen. Sie ist **nicht signiert**,
+  SmartScreen warnt deshalb beim ersten Start; die `.bat` bleibt gleichwertig.
+  Der Nachbau ist nicht bitgenau — der Compiler stempelt Zeitstempel und
+  Modul-Kennung ein, 18 von 41 984 Byte weichen ab.
+- **Selbst gezeichnetes Programmsymbol** (`tools/New-AppIcon.ps1`), Globus mit
+  Schriftzug, acht Größen von 16 bis 256 Punkten. Bewusst kein Emoji: Segoe UI
+  Emoji gehört Microsoft, Twemoji verlangt Namensnennung, OpenMoji zusätzlich
+  Weitergabe unter gleichen Bedingungen. Kreise und Linien gehören niemandem.
+  Die Fenster setzen ihr Symbol jetzt selbst — sonst zeigte die Taskleiste
+  weiterhin das von `powershell.exe`.
 - **Portfreigaben im Router verwalten.** Bisher wurde UPnP nur erkannt — jetzt
   lassen sich vorhandene Freigaben ansehen, neue anlegen und alte entfernen,
   ohne das Router-Menü zu suchen. Freigaben auf bekannten Risiko-Ports werden
@@ -62,7 +75,7 @@ Versionierung nach [SemVer](https://semver.org/lang/de/).
 
 - **Crimson ist die neue Voreinstellung** und steht an erster Stelle der
   Farbwelten, damit sie auch der Rückfallwert ist.
-- Testsuite von 100 auf 144 Tests. Neu darunter ein **nachgebauter
+- Testsuite von 100 auf 154 Tests. Neu darunter ein **nachgebauter
   UPnP-Router**, gegen den der komplette Weg geprüft wird: Beschreibung lesen,
   Steuer-Adresse finden, auflisten, anlegen, löschen — samt der Fehlernummern,
   die echte Geräte zurückgeben. So ist die Funktion abgesichert, ohne bei jedem
@@ -100,7 +113,7 @@ sauber getrennter Messlogik und einer Testsuite.
 - **Seite „Ports öffnen"** mit Schritt-für-Schritt-Anleitung zur
   Portweiterleitung, Menüpfaden der verbreitetsten Router und einer ehrlichen
   Einordnung, wann es nicht am Router liegt (CGNAT, doppeltes NAT, Mobilfunk)
-- **Testsuite** mit 102 Tests ohne Fremdmodule, komplett offline lauffähig
+- **Testsuite** mit 100 Tests ohne Fremdmodule, komplett offline lauffähig
 
 ### Gegenüber dem privaten Vorläufer behoben
 

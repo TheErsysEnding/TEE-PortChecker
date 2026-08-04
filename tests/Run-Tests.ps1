@@ -188,12 +188,12 @@ Test-Case '10.0.0.1 ist privat'          { (Test-PrivateIPv4 '10.0.0.1') -eq $tr
 Test-Case '192.168.1.1 ist privat'       { (Test-PrivateIPv4 '192.168.1.1') -eq $true }
 Test-Case '172.16.0.1 ist privat'        { (Test-PrivateIPv4 '172.16.0.1') -eq $true }
 Test-Case '172.31.255.254 ist privat'    { (Test-PrivateIPv4 '172.31.255.254') -eq $true }
-Test-Case '172.15.0.1 ist NICHT privat'  { (Test-PrivateIPv4 '172.15.0.1') -eq $false }
-Test-Case '172.32.0.1 ist NICHT privat'  { (Test-PrivateIPv4 '172.32.0.1') -eq $false }
+Test-Case '172.15.0.1 ist NICHT privat'  { (Test-PrivateIPv4 '172.15.0.1') -eq $false }  # ip-ok
+Test-Case '172.32.0.1 ist NICHT privat'  { (Test-PrivateIPv4 '172.32.0.1') -eq $false }  # ip-ok
 Test-Case '100.64.0.1 ist CGNAT'         { (Test-PrivateIPv4 '100.64.0.1') -eq $true }
 Test-Case '100.127.255.1 ist CGNAT'      { (Test-PrivateIPv4 '100.127.255.1') -eq $true }
-Test-Case '100.63.0.1 ist NICHT CGNAT'   { (Test-PrivateIPv4 '100.63.0.1') -eq $false }
-Test-Case '100.128.0.1 ist NICHT CGNAT'  { (Test-PrivateIPv4 '100.128.0.1') -eq $false }
+Test-Case '100.63.0.1 ist NICHT CGNAT'   { (Test-PrivateIPv4 '100.63.0.1') -eq $false }  # ip-ok
+Test-Case '100.128.0.1 ist NICHT CGNAT'  { (Test-PrivateIPv4 '100.128.0.1') -eq $false }  # ip-ok
 Test-Case '127.0.0.1 ist Loopback'       { (Test-PrivateIPv4 '127.0.0.1') -eq $true }
 Test-Case '169.254.1.1 ist APIPA'        { (Test-PrivateIPv4 '169.254.1.1') -eq $true }
 Test-Case '8.8.8.8 ist öffentlich'       { (Test-PrivateIPv4 '8.8.8.8') -eq $false }
@@ -919,6 +919,65 @@ Test-Case 'Alle Quelldateien sind syntaktisch gültiges PowerShell' {
     }
     if ($fehler.Count -eq 0) { return $true }
     return ($fehler -join '; ')
+}
+Test-Case 'Keine weltweit routbare IP-Adresse als Beispiel im Projekt' {
+    # Vorgeschichte: im Kommentar von Hide-IpAddress stand eine echte deutsche
+    # Kabelanschluss-Adresse als Beispiel - ausgerechnet in der Funktion, die
+    # verhindern soll, dass eine volle IP nach aussen gelangt. Sie steckte
+    # dadurch in vier Commits. Beispiele gehoeren in die Dokumentationsbereiche
+    # nach RFC 5737, die weltweit niemandem zugeteilt sind.
+    #
+    # Erlaubt sind ausserdem private Bereiche, CGNAT, Loopback, Multicast,
+    # APIPA und die oeffentlichen DNS-Resolver, die das Werkzeug wirklich
+    # anspricht. Alles andere ist ein echter Anschluss von irgendjemandem.
+    #
+    # Eine Zeile mit dem Vermerk "# ip-ok" wird uebersprungen. Den brauchen die
+    # Grenzwert-Tests weiter oben, die absichtlich Adressen knapp AUSSERHALB der
+    # reservierten Bereiche pruefen. Bewusst ein Vermerk und keine pauschale
+    # Ausnahme fuer diese Datei: so muss jede Ausnahme einzeln hingeschrieben
+    # werden und faellt beim Lesen auf.
+    $erlaubt = {
+        param([int[]]$o)
+        if ($o[0] -eq 10) { return $true }                                  # RFC 1918
+        if ($o[0] -eq 172 -and $o[1] -ge 16 -and $o[1] -le 31) { return $true }
+        if ($o[0] -eq 192 -and $o[1] -eq 168) { return $true }
+        if ($o[0] -eq 127) { return $true }                                 # Loopback
+        if ($o[0] -eq 0 -or $o[0] -ge 224) { return $true }                 # Multicast/reserviert
+        if ($o[0] -eq 169 -and $o[1] -eq 254) { return $true }              # APIPA
+        if ($o[0] -eq 100 -and $o[1] -ge 64 -and $o[1] -le 127) { return $true }   # CGNAT
+        if ($o[0] -eq 192 -and $o[1] -eq 0 -and $o[2] -eq 2) { return $true }      # RFC 5737
+        if ($o[0] -eq 198 -and $o[1] -eq 51 -and $o[2] -eq 100) { return $true }   # RFC 5737
+        if ($o[0] -eq 203 -and $o[1] -eq 0 -and $o[2] -eq 113) { return $true }    # RFC 5737
+        if ($o[0] -eq 198 -and ($o[1] -eq 18 -or $o[1] -eq 19)) { return $true }   # RFC 2544
+        return $false
+    }
+    # Resolver, die das Werkzeug tatsaechlich anpingt bzw. zur Routenwahl nutzt.
+    $dienste = @('8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9', '149.112.112.112')
+
+    $dateien = @()
+    $dateien += Get-ChildItem $script:SrcDir -File |
+                Where-Object { $_.Extension -in @('.ps1', '.xaml') }
+    $dateien += Get-ChildItem $script:Root -File -Filter '*.md'
+    $tests = Join-Path $script:Root 'tests\Run-Tests.ps1'
+    if (Test-Path $tests) { $dateien += Get-Item $tests }
+
+    $treffer = @()
+    foreach ($datei in $dateien) {
+        $zeilen = [System.IO.File]::ReadAllLines($datei.FullName, [System.Text.Encoding]::UTF8)
+        for ($i = 0; $i -lt $zeilen.Count; $i++) {
+            if ($zeilen[$i] -match '#\s*ip-ok') { continue }
+            foreach ($m in [regex]::Matches($zeilen[$i], '\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b')) {
+                $o = @([int]$m.Groups[1].Value, [int]$m.Groups[2].Value,
+                       [int]$m.Groups[3].Value, [int]$m.Groups[4].Value)
+                if (($o | Where-Object { $_ -gt 255 })) { continue }   # Version, kein IP
+                if ($dienste -contains $m.Value) { continue }
+                if (& $erlaubt $o) { continue }
+                $treffer += "$($datei.Name):$($i + 1)  $($m.Value)"
+            }
+        }
+    }
+    if ($treffer.Count -eq 0) { return $true }
+    return 'echte oeffentliche Adresse gefunden -> ' + ($treffer -join ' | ')
 }
 
 # ------------------------------------------------------------------------------

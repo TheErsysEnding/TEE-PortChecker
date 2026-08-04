@@ -2128,6 +2128,12 @@ function Hide-IpAddress {
         erkennbar, die Adresse taugt aber nicht mehr dazu, jemanden gezielt
         anzugreifen. Die Karte ist zum Teilen gedacht - da hat eine
         vollständige IP nichts verloren.
+
+        Das Beispiel stammt bewusst aus 203.0.113.0/24 (RFC 5737). Echte
+        Adressen gehören auch nicht als Beispiel in den Quelltext - erst recht
+        nicht in die Funktion, die genau das verhindern soll. Ein Test in
+        tests/Run-Tests.ps1 hält das offen: er meldet jedes weltweit
+        routbare IPv4-Literal in src/ und in den Dokumenten.
     #>
     param([string]$Address)
     if (-not $Address) { return 'unbekannt' }

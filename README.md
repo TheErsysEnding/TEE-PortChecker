@@ -312,7 +312,16 @@ Vollständige Liste. Es gibt keine Telemetrie, keine Konten und keine Werbung.
 | Port-Test | `ports.yougetsignal.com`, ersatzweise `canyouseeme.org` | deine öffentliche IP + die Portnummer |
 | IP ermitteln | `api.ipify.org`, `ifconfig.me`, `checkip.amazonaws.com`, `icanhazip.com` | nur die Anfrage — der Dienst sieht, was jeder Webserver sieht |
 | NAT-Typ | STUN von Google, Cloudflare, Nextcloud, sipgate | leere STUN-Anfragen, keine Inhalte |
+| IPv6-Prüfung | `api6.ipify.org`, `v6.ident.me`, `ipv6.icanhazip.com` | deine **vollständige** öffentliche IPv6-Adresse |
+| Verbindungsqualität | Router, dein DNS-Server, `1.1.1.1`, `8.8.8.8`, `9.9.9.9` | ICMP-Echo, keine Inhalte |
 | UPnP-Suche | SSDP-Multicast | bleibt vollständig im lokalen Netz |
+
+Zwei Zeilen davon verdienen einen eigenen Satz:
+
+**Die IPv6-Prüfung ist die datenintensivste Funktion des Werkzeugs.** Eine globale
+IPv6-Adresse bezeichnet — anders als die IPv4 hinter NAT — genau ein Gerät. Der
+befragte Dienst sieht sie zwangsläufig; anders lässt sie sich nicht ermitteln.
+**Beide Funktionen laufen ausschließlich auf Knopfdruck**, nie beim Start.
 
 Gespeichert wird ausschließlich `%APPDATA%\TEE-PortChecker\settings.json` mit den
 Oberflächen-Einstellungen — **keine Messergebnisse, keine IP-Adressen, kein Verlauf.**
@@ -323,16 +332,26 @@ Oberflächen-Einstellungen — **keine Messergebnisse, keine IP-Adressen, kein V
 
 ```
 TEE-PortChecker/
-├─ TEE-PortChecker.bat              Start der Oberfläche
-├─ TEE-PortChecker-Konsole.bat      Start der Textfassung
+├─ TEE-PortChecker.exe               Starter für die Oberfläche (42 KB, kein Programmcode)
+├─ TEE-PortChecker.bat               Dasselbe ohne .exe
+├─ TEE-PortChecker-Konsole.bat       Start der Textfassung
 ├─ src/
-│  ├─ Gui.xaml                Aussehen und Anordnung (reines XAML)
-│  ├─ PortCheck.Gui.ps1       Oberflächen-Logik, Hintergrund-Runspaces
-│  ├─ PortCheck.Cli.ps1       Konsolenfassung
-│  ├─ PortCheck.Core.ps1      Messlogik — ohne jede Oberfläche
-│  ├─ PortCheck.Presets.ps1   Portlisten der Spiele
-│  ├─ PortCheck.Themes.ps1    Farbwelten
-└─ tests/Run-Tests.ps1        100 Tests, ohne Fremdmodule
+│  ├─ Gui.xaml                 Aussehen und Anordnung (reines XAML)
+│  ├─ Welcome.xaml             Begrüßungsfenster beim ersten Start
+│  ├─ Share.xaml               Ergebniskarte zum Teilen
+│  ├─ PortCheck.Gui.ps1        Oberflächen-Logik, Hintergrund-Runspaces
+│  ├─ PortCheck.Cli.ps1        Konsolenfassung
+│  ├─ PortCheck.Core.ps1       Messlogik — ohne jede Oberfläche
+│  ├─ PortCheck.Upnp.ps1       SSDP-Suche und SOAP-Steuerung des Routers
+│  ├─ PortCheck.Diagnose.ps1   Sicherheits-Check, IPv6, Verbindungsqualität
+│  ├─ PortCheck.Presets.ps1    Portlisten der Spiele
+│  └─ PortCheck.Themes.ps1     Farbwelten
+├─ tools/
+│  ├─ Launcher.cs              Quelltext der .exe (rund 100 Zeilen)
+│  ├─ Build-Exe.ps1            übersetzt die .exe neu
+│  └─ New-AppIcon.ps1          zeichnet das Programmsymbol aus Geometrie
+├─ docs/                       Bildschirmfotos und Programmsymbol
+└─ tests/Run-Tests.ps1         154 Tests, ohne Fremdmodule
 ```
 
 Die Trennung ist Absicht: **`PortCheck.Core.ps1` enthält kein einziges
@@ -340,13 +359,17 @@ Die Trennung ist Absicht: **`PortCheck.Core.ps1` enthält kein einziges
 Hintergrund-Runspaces benutzen exakt denselben Code — was du im Quelltext liest,
 ist genau das, was gemessen wird.
 
-### Warum PowerShell und nicht eine `.exe`?
+### Warum PowerShell und nicht ein kompiliertes Programm?
 
 Für ein Werkzeug, das Netzwerkverbindungen öffnet und Daten an einen fremden
 Dienst schickt, ist **lesbarer Quelltext mehr wert als eine kompilierte Datei**,
-der man vertrauen muss. Jede Zeile liegt im Klartext bei. Nebenbei gibt es damit
-keinen Build-Schritt, keine Runtime-Abhängigkeit und keinen Virenscanner-Fehlalarm
-durch eine unsignierte `.exe`.
+der man vertrauen muss. Jede Zeile der Messtechnik liegt im Klartext bei, es gibt
+keinen Build-Schritt und keine Runtime-Abhängigkeit.
+
+Die mitgelieferte `TEE-PortChecker.exe` ändert daran nichts: sie enthält keinen
+Programmcode des Werkzeugs, sondern startet nur das Skript — Näheres oben unter
+„Was die .exe ist — und was sie nicht ist". Wer sie nicht will, nimmt die `.bat`
+und verliert kein einziges Merkmal.
 
 ### Tests
 
@@ -354,9 +377,13 @@ durch eine unsignierte `.exe`.
 .\tests\Run-Tests.ps1
 ```
 
-153 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
+154 Tests ohne Fremdmodule — Port-Parser, STUN-Parser (mit selbst gebauten
 Paketen), NAT-Bewertung, Preset-Integrität, Farbwelten, XAML-Aufbau und
 Zeichenkodierung. **Kein Test geht ins Internet**, sie laufen also auch offline.
+
+Einer davon ist ein Wächter in eigener Sache: er meldet jede weltweit routbare
+IP-Adresse, die als Beispiel in den Quelltext oder die Dokumentation gerät.
+Genau das war hier schon einmal passiert.
 
 Zusätzlich:
 
@@ -473,14 +500,20 @@ listener cannot accept connections and everything reports as closed.
 .\tests\Run-Tests.ps1
 ```
 
-153 tests, no third-party modules, no network access — they run offline.
+154 tests, no third-party modules, no network access — they run offline.
 
-## Why PowerShell instead of a compiled `.exe`?
+## Why PowerShell instead of a compiled program?
 
 For a tool that opens network connections and sends data to a third-party
 service, **readable source is worth more than a binary you have to trust.**
-Every line ships in plain text. As a bonus: no build step, no runtime dependency,
-and no antivirus false positive from an unsigned executable.
+Every line of the measuring code ships in plain text — no build step, no runtime
+dependency.
+
+The bundled `TEE-PortChecker.exe` does not change that. It is a 42 KB launcher
+containing none of the tool's logic: it starts `src\PortCheck.Gui.ps1` and exits.
+Its full source ships as [`tools/Launcher.cs`](tools/Launcher.cs) and rebuilds
+with `tools/Build-Exe.ps1`. It is **not code-signed**, so SmartScreen will warn on
+first run. Prefer no binary at all? Use `TEE-PortChecker.bat` — same result.
 
 ## License
 
