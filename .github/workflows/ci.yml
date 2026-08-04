@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Umgebung anzeigen
         shell: powershell
@@ -55,7 +55,7 @@ jobs:
     continue-on-error: true   # Hinweise sollen den Build nicht rot faerben
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: PSScriptAnalyzer installieren
         shell: powershell
